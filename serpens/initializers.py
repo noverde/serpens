@@ -21,7 +21,7 @@ _MISSING_DEPS_ERROR = "Missing module '%s'. Try: pip install %s"
 logger = logging.getLogger(__name__)
 
 
-def init_env(filename=".env") -> None:
+def load_env(filename=".env") -> None:
     if not os.path.isfile(filename):
         return
 
@@ -70,7 +70,7 @@ def init_sentry() -> None:
 
 
 def setup():
-    init_env()
+    load_env()
     init_logger()
     if not _SENTRY_SDK_MISSING_DEPS:
         init_sentry()
