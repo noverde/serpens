@@ -69,7 +69,7 @@ def init_sentry() -> None:
     logger.info("Sentry's SDK initialized")
 
 
-def init_default():
+def setup():
     init_env()
     init_logger()
     if not _SENTRY_SDK_MISSING_DEPS:
