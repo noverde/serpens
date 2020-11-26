@@ -43,8 +43,10 @@ def load_env(filename=".env") -> None:
 
 
 def init_logger() -> None:
+    level = logging.getLevelName(os.getenv("LOG_LEVEL", "INFO").upper())
+
     logging.basicConfig(
-        level=logging.getLevelName(os.getenv("LOG_LEVEL", "INFO").upper()),
+        level=level,
         # %(asctime)s  %(name)s %(levelname)-8s %(message)s
         format="%(asctime)s %(levelname)s %(message)s"
     )
