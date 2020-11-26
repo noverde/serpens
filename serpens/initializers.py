@@ -58,13 +58,10 @@ def init_sentry() -> None:
     # sentry-sdk already check for SENTRY_DSN, SENTRY_ENVIRONMENT and
     # SENTRY_RELEASE environment vars so we call check for it to keep
     # compatibility with default behavior.
-    environment = os.getenv("ENVIRONMENT", "development")
-    release = os.getenv("RELEASE", "my-project-name@2.3.12")
+        "SENTRY_ENVIRONMENT",
     sentry_sdk.init(
         dsn=os.getenv("SENTRY_DSN", ""),
-        environment=os.getenv("SENTRY_ENVIRONMENT", environment),
-        release=os.getenv("SENTRY_RELEASE", release),
-        debug=os.getenv("DEBUG", "False").lower() in ("yes", "true", "t", "1")
+        release=release,
     )
     logger.info("Sentry's SDK initialized")
 
