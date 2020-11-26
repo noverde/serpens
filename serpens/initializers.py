@@ -29,7 +29,7 @@ def load_env(filename=".env") -> None:
         stream = open(filename, "r")
         buffer = stream.readlines()
         stream.close()
-    except:
+    except Exception:
         return
 
     for line in buffer:
