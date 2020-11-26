@@ -45,6 +45,12 @@ def load_env(filename=".env") -> None:
 def init_logger() -> None:
     level = logging.getLevelName(os.getenv("LOG_LEVEL", "INFO").upper())
 
+    # It seens AWS Lambda Python runtime pre-configures a logging handler, so
+    # just set log level is enought.
+    if logging.getLogger().hasHandlers():
+        logging.getLogger().setLevel(level)
+        return
+
     logging.basicConfig(
         level=level,
         # %(asctime)s  %(name)s %(levelname)-8s %(message)s
