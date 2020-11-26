@@ -35,6 +35,6 @@ def open_csv_reader(filename):
 
 
 def open_csv_writer(filename, dialect='excel'):
-    stream = open(filename, 'w', encoding='UTF-8-SIG')
+    stream = open(filename, 'w', encoding='UTF-8')
 
     return csv.writer(stream, dialect=dialect)
