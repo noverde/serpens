@@ -1,5 +1,6 @@
 import os
 
+import alembic.config
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 
@@ -16,3 +17,13 @@ def setup(database_url: str):
     global Engine, Session
     Engine = _get_engine(database_url)
     Session = scoped_session(sessionmaker(bind=Engine, autoflush=True))
+
+
+def migrate():
+    alembicArgs = [
+        "--raiseerr",
+        "upgrade",
+        "head",
+    ]
+    alembic.config.main(argv=alembicArgs)
+    
