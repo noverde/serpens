@@ -28,13 +28,14 @@ def test_iso8859():
 
 
 def test_writer():
-    with tempfile.NamedTemporaryFile(delete=False) as temp:
-        writer = csvutils.open_csv_writer(temp.filename)
-        writer.writerow(["hello", "name"])
-        writer.writerow(["1", "Açaí"])
+    _, temp = tempfile.mkstemp()
+    writer = csvutils.open_csv_writer(temp)
+    writer.writerow(["id", "name"])
+    writer.writerow(["1", "Açaí"])
+    del writer
 
-        reader = csvutils.open_csv_reader(temp.filename)
-        assert reader.fieldnames == ["id", "name"]
+    reader = csvutils.open_csv_reader(temp)
+    assert reader.fieldnames == ["id", "name"]
 
-        line = next(reader)
-        assert line == {"id": "1", "name": "Açaí"}
+    line = next(reader)
+    assert line == {"id": "1", "name": "Açaí"}
