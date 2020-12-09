@@ -10,7 +10,7 @@ from sqlalchemy import (
 )
 
 
-class TestModel:
+class TestModel(database.BaseModel):
     id: int
 
 
@@ -40,3 +40,10 @@ def test_session():
     session.add(test_item)
     
     assert session.query(TestModel).get(1).id == 1
+
+
+def test_base_model_save():
+    model = TestModel()
+    model.id = 2
+    model.save()
+    assert model.id == 2

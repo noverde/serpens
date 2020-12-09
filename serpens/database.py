@@ -27,3 +27,14 @@ def migrate():
     ]
     alembic.config.main(argv=alembicArgs)
     
+
+class BaseModel:
+    def save(self):
+        session = Session()
+        if not self.id:  # type: ignore
+            session.add(self)
+        else:
+            self = session.merge(self)
+        session.commit()
+        session.refresh(self)
+        session.close()
