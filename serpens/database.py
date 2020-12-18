@@ -6,14 +6,15 @@ except ImportError:
 
 try:
     from pony.orm import Database
-except:
+except ImportError:
     PONY_NOT_FOUND = True
 
 
 def migrate(database_url, migrations_path="./migrations"):
     if YOYO_NOT_FOUND:
-        raise Exception("Couldn't run migrations because yoyo wasn't present in modules")
-    
+        raise Exception(
+            "Couldn't run migrations because yoyo wasn't present in modules")
+
     backend = get_backend(database_url)
     migrations = read_migrations(migrations_path)
     backend.apply_migrations(backend.to_apply(migrations))
@@ -21,7 +22,8 @@ def migrate(database_url, migrations_path="./migrations"):
 
 def setup(database_url: str) -> Database:
     if PONY_NOT_FOUND:
-        raise Exception("Couldn't setup database because PonyORM wasn't present in modules")
+        raise Exception(
+            "Couldn't setup database because PonyORM wasn't present in modules")
 
     tmp = database_url.split("://")
     drive = tmp[0]
