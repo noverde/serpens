@@ -1,11 +1,13 @@
 try:
     from yoyo import read_migrations
     from yoyo import get_backend
+    YOYO_NOT_FOUND = False
 except ImportError:
     YOYO_NOT_FOUND = True
 
 try:
     from pony.orm import Database
+    PONY_NOT_FOUND = False
 except ImportError:
     PONY_NOT_FOUND = True
 
