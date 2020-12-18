@@ -11,7 +11,7 @@ def get(secret_id, keyname=None):
     try:
         result = json.loads(secret)
         if keyname:
-            return result["keyname"]
+            return result[keyname]
         return result
     except JSONDecodeError:
         return secret
