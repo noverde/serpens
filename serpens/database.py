@@ -1,40 +1,18 @@
-import os
-
-import alembic.config
-from sqlalchemy import create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
+from yoyo import read_migrations
+from yoyo import get_backend
+from pony.orm import Database
 
 
-def _get_engine(database_url: str):
-    if not database_url: 
-        raise ValueError("Couldn't initialize database because env variable DATABASE_URL wasn't setted")
 
-    debug_mode = bool(os.getenv("SQL_DEBUG_MODE", False))
-    return create_engine(database_url, echo=debug_mode)
-
-
-def setup(database_url: str):
-    global Engine, Session
-    Engine = _get_engine(database_url)
-    Session = scoped_session(sessionmaker(bind=Engine, autoflush=True))
+def migrate(database_url, migrations_path="./migrations"):
+    backend = get_backend(database_url)
+    migrations = read_migrations(migrations_path)
+    backend.apply_migrations(backend.to_apply(migrations))
 
 
-def migrate():
-    alembicArgs = [
-        "--raiseerr",
-        "upgrade",
-        "head",
-    ]
-    alembic.config.main(argv=alembicArgs)
-    
-
-class BaseModel:
-    def save(self):
-        session = Session()
-        if not self.id:  # type: ignore
-            session.add(self)
-        else:
-            self = session.merge(self)
-        session.commit()
-        session.refresh(self)
-        session.close()
+def setup(database_url: str) -> Database:
+    tmp = database_url.split("://")
+    drive = tmp[0]
+    if drive == "sqlite":
+        database_url = tmp[1]
+    return Database(drive, database_url)
