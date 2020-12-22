@@ -1,5 +1,4 @@
 import json
-from dataclasses import dataclass
 from functools import wraps
 
 
@@ -25,11 +24,13 @@ def handler(func):
     return wrapper
 
 
-@dataclass
 class Authorizer:
-    partner_id: int = None
-    product_id: int = None
-    borrower_id: int = None
+    def __init__(self, data):
+        for key, value in data.items():
+            setattr(self, key, value)
+
+    def __repr__(self):
+        return str(self.__dict__)
 
 
 class Request:
@@ -40,13 +41,12 @@ class Request:
 
     def _authorizer(self):
         context = self.data.get("requestContext") or {}
-        partner_id = context.get("authorizer").get("partner_id")
-        product_id = context.get("authorizer").get("product_id")
-        borrower_id = context.get("authorizer").get("borrower_id")
-        Authorizer(partner_id, product_id, borrower_id)
+        authorizer = context.get("authorizer") or {}
+        return Authorizer(authorizer)
 
     def _body(self):
+        body = self.data.get("body") or ""
         try:
-            return json.loads(self.data)
+            return json.loads(body)
         except json.JSONDecodeError:
-            return self.data
+            return body
