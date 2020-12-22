@@ -1,49 +1,17 @@
-import os
+from pony.orm.core import db_session
 
 from serpens import database
-from sqlalchemy.orm import mapper
-from sqlalchemy import (
-    Table,
-    MetaData,
-    Column,
-    Integer
-)
 
 
-class TestModel(database.BaseModel):
-    id: int
+def test_migrate():
+    database_url = "sqlite:///serpens/test.db"
+    path = "./tests/samples/migrations"
+    database.migrate(database_url, path)
 
-
-
+@db_session
 def test_database():
-    database.setup("sqlite:///:memory:")
-    database.Engine.execute("CREATE TABLE test (id INTEGER)")
-    database.Engine.execute("INSERT INTO test (id) VALUES (1)")
-    result_set = database.Engine.execute("SELECT * FROM test").fetchall()
-    assert len(result_set) == 1
-
-
-def test_session():
-    database.setup("sqlite:///:memory:")
-    print(database.Engine)
-    print(database.Session)
-
-    metadata = MetaData()
-    test_table = Table("test", metadata, Column('id', Integer, primary_key=True))
-    metadata.create_all(database.Engine)
-    mapper(TestModel, test_table)
-
-    session = database.Session()
-    
-    test_item = TestModel()
-    test_item.id = 1
-    session.add(test_item)
-    
-    assert session.query(TestModel).get(1).id == 1
-
-
-def test_base_model_save():
-    model = TestModel()
-    model.id = 2
-    model.save()
-    assert model.id == 2
+    db = database.setup("sqlite://test.db")
+    db.execute("INSERT INTO foo (id, bar) VALUES (1, 'test')")
+    result = db.get("SELECT * FROM foo WHERE id = 1")
+    print(result)
+    assert result is not None
