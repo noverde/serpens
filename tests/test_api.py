@@ -4,16 +4,31 @@ import unittest
 import api
 
 
-class TestApiAuthorizer(unittest.TestCase):
+class TestApiAttrDict(unittest.TestCase):
     def test_instance(self):
-        data = {"foo": "bar", "baz": 1}
-        instance = api.Authorizer(data)
+        data = {"foo": "bar", "baz": 1, "pos": {"x": 0, "y": 0}}
+        instance = api.AttrDict(data)
 
-        self.assertIsInstance(instance, api.Authorizer)
+        self.assertIsInstance(instance, api.AttrDict)
         self.assertTrue(hasattr(instance, "foo"))
         self.assertTrue(hasattr(instance, "baz"))
+        self.assertTrue(hasattr(instance, "pos"))
+        self.assertTrue(hasattr(instance.pos, "x"))
+        self.assertTrue(hasattr(instance.pos, "y"))
+        self.assertTrue("foo" in instance)
+        self.assertTrue("baz" in instance)
+        self.assertTrue("pos" in instance)
+        self.assertTrue("x" in instance.pos)
+        self.assertTrue("y" in instance.pos)
+        self.assertFalse("bar" in instance)
         self.assertEqual(instance.foo, "bar")
         self.assertEqual(instance.baz, 1)
+        self.assertEqual(instance.pos.x, 0)
+        self.assertEqual(instance.pos.y, 0)
+        self.assertEqual(instance["foo"], "bar")
+        self.assertEqual(instance["baz"], 1)
+        self.assertEqual(instance["pos"]["x"], 0)
+        self.assertEqual(instance["pos"]["y"], 0)
         self.assertEqual(str(instance), str(data))
 
 
@@ -22,15 +37,23 @@ class TestApiRequest(unittest.TestCase):
         data = {
             "requestContext": {"authorizer": {"foo": "bar", "baz": 1}},
             "body": '{"ping": "pong"}',
+            "pathParameters": {"one": 1, "two": 2},
+            "queryStringParameters": {"limit": 10, "page": 2},
         }
         instance = api.Request(data)
 
         self.assertIsInstance(instance, api.Request)
         self.assertTrue(hasattr(instance, "authorizer"))
         self.assertTrue(hasattr(instance, "body"))
-        self.assertTrue(instance.authorizer.foo, "bar")
-        self.assertTrue(instance.authorizer.baz, 1)
-        self.assertTrue(instance.body, {"ping": "pong"})
+        self.assertTrue(hasattr(instance, "path"))
+        self.assertTrue(hasattr(instance, "query"))
+        self.assertEqual(instance.authorizer.foo, "bar")
+        self.assertEqual(instance.authorizer.baz, 1)
+        self.assertEqual(instance.body, {"ping": "pong"})
+        self.assertEqual(instance.path.one, 1)
+        self.assertEqual(instance.path.two, 2)
+        self.assertEqual(instance.query.limit, 10)
+        self.assertEqual(instance.query.page, 2)
 
 
 class TestApiHandler(unittest.TestCase):

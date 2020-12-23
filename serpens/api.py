@@ -24,10 +24,19 @@ def handler(func):
     return wrapper
 
 
-class Authorizer:
+class AttrDict:
     def __init__(self, data):
         for key, value in data.items():
-            setattr(self, key, value)
+            if type(value) is dict:
+                setattr(self, key, AttrDict(value))
+            else:
+                setattr(self, key, value)
+
+    def __contains__(self, name):
+        return name in self.__dict__
+
+    def __getitem__(self, name):
+        return getattr(self, name)
 
     def __repr__(self):
         return str(self.__dict__)
@@ -38,11 +47,13 @@ class Request:
         self.data = data
         self.authorizer = self._authorizer()
         self.body = self._body()
+        self.path = self._path()
+        self.query = self._query()
 
     def _authorizer(self):
         context = self.data.get("requestContext") or {}
         authorizer = context.get("authorizer") or {}
-        return Authorizer(authorizer)
+        return AttrDict(authorizer)
 
     def _body(self):
         body = self.data.get("body") or ""
@@ -50,3 +61,11 @@ class Request:
             return json.loads(body)
         except json.JSONDecodeError:
             return body
+
+    def _path(self):
+        path = self.data.get("pathParameters") or {}
+        return AttrDict(path)
+
+    def _query(self):
+        query = self.data.get("queryStringParameters") or {}
+        return AttrDict(query)
