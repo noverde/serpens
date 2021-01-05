@@ -3,9 +3,17 @@ import unittest
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
+from enum import Enum
 from uuid import UUID
 
 from schema import Schema
+
+
+class Level(Enum):
+    INTERN = "intern"
+    JUNIOR = "junior"
+    MIDDLE = "middle"
+    SENIOR = "senior"
 
 
 @dataclass
@@ -21,6 +29,7 @@ class EmployeeSchema(Schema):
     uid: UUID
     office: str
     salary: Decimal
+    level: Level
     registered: date
 
 
@@ -52,6 +61,7 @@ class TestSchema(unittest.TestCase):
             "uid": "dc675e20-6e8b-4b05-a8ce-4459560526c3",
             "office": "main",
             "salary": 6500.1,
+            "level": "middle",
             "registered": "2021-01-01",
         }
         instance = EmployeeSchema.load(data)
@@ -59,6 +69,7 @@ class TestSchema(unittest.TestCase):
         self.assertIsInstance(instance, EmployeeSchema)
         self.assertIsInstance(instance.person, PersonSchema)
         self.assertIsInstance(instance.salary, Decimal)
+        self.assertIsInstance(instance.level, Enum)
         self.assertIsInstance(instance.registered, date)
 
     def test_load_many(self):
@@ -68,6 +79,7 @@ class TestSchema(unittest.TestCase):
                 "uid": "dc675e20-6e8b-4b05-a8ce-4459560526c3",
                 "office": "main",
                 "salary": 6500.1,
+                "level": "middle",
                 "registered": "2021-01-01",
             }
         ]
@@ -77,6 +89,7 @@ class TestSchema(unittest.TestCase):
         self.assertIsInstance(instances[0], EmployeeSchema)
         self.assertIsInstance(instances[0].person, PersonSchema)
         self.assertIsInstance(instances[0].salary, Decimal)
+        self.assertIsInstance(instances[0].level, Enum)
         self.assertIsInstance(instances[0].registered, date)
 
     def test_loads(self):
@@ -86,6 +99,7 @@ class TestSchema(unittest.TestCase):
                 "uid": "dc675e20-6e8b-4b05-a8ce-4459560526c3",
                 "office": "main",
                 "salary": 6500.1,
+                "level": "middle",
                 "registered": "2021-01-01",
             }
         )
@@ -94,6 +108,7 @@ class TestSchema(unittest.TestCase):
         self.assertIsInstance(instance, EmployeeSchema)
         self.assertIsInstance(instance.person, PersonSchema)
         self.assertIsInstance(instance.salary, Decimal)
+        self.assertIsInstance(instance.level, Enum)
         self.assertIsInstance(instance.registered, date)
 
     def test_dump(self):
@@ -102,6 +117,7 @@ class TestSchema(unittest.TestCase):
             "uid": "dc675e20-6e8b-4b05-a8ce-4459560526c3",
             "office": "main",
             "salary": 6500.1,
+            "level": "middle",
             "registered": "2021-01-01",
         }
         instance = EmployeeSchema.load(expected)
@@ -116,6 +132,7 @@ class TestSchema(unittest.TestCase):
                 "uid": "dc675e20-6e8b-4b05-a8ce-4459560526c3",
                 "office": "main",
                 "salary": 6500.1,
+                "level": "middle",
                 "registered": "2021-01-01",
             }
         ]
@@ -131,6 +148,7 @@ class TestSchema(unittest.TestCase):
             "uid": "dc675e20-6e8b-4b05-a8ce-4459560526c3",
             "office": "main",
             "salary": 6500.1,
+            "level": "middle",
             "registered": "2021-01-01",
         }
         instance = EmployeeSchema.load(expected)

@@ -3,6 +3,7 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass, fields, is_dataclass
 from datetime import date, datetime, time
 from decimal import Decimal
+from enum import Enum
 from uuid import UUID
 
 
@@ -31,6 +32,8 @@ class Schema:
             if field.type in (date, datetime, time):
                 data[field.name] = field.type.fromisoformat(data[field.name])
             elif field.type in (Decimal, UUID):
+                data[field.name] = field.type(data[field.name])
+            elif issubclass(field.type, Enum):
                 data[field.name] = field.type(data[field.name])
             elif is_dataclass(field.type):
                 data[field.name] = field.type.load(data[field.name])
@@ -62,4 +65,6 @@ class SchemaEncoder(json.JSONEncoder):
             return float(obj)
         elif isinstance(obj, UUID):
             return str(obj)
+        elif isinstance(obj, Enum):
+            return obj.value
         return super().default(obj)
