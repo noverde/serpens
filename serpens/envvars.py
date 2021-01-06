@@ -13,6 +13,8 @@ def get(key, default=None):
 
     if result.startswith("secrets://"):
         tmp = result.split("://")[1].split("?")
-        return secrets.get(tmp[0], tmp[1])
+        secret_name = tmp[0]
+        secret_key = tmp[1] if len(tmp) > 1 else None
+        return secrets.get(secret_name, secret_key)
 
     return result
