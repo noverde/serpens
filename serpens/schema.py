@@ -12,6 +12,8 @@ class Schema:
     def __post_init__(self):
         errors = []
         for field in fields(self):
+            if field.default is None and getattr(self, field.name) is None:
+                continue
             if not isinstance(getattr(self, field.name), field.type):
                 msg = f"'{field.name}' must be of type {field.type.__name__}"
                 errors.append(msg)
