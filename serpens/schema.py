@@ -21,25 +21,31 @@ class Schema:
             raise TypeError(*errors)
 
     @classmethod
-    def load(cls, dictionary, many=False):
+    def load(cls, dictionary, many=False, unknown=False):
         data = deepcopy(dictionary)
 
         if many:
             return list(map(cls.load, data))
 
+        names = []
         for field in fields(cls):
-            if field.name not in data or data[field.name] is None:
+            names.append(field.name)
+            if field.name not in data or data.get(field.name) is None:
                 continue
             # cast special types
-            if field.type in (date, datetime, time):
+            if field.type in (date, datetime, time) and isinstance(data[field.name], str):
                 data[field.name] = field.type.fromisoformat(data[field.name])
             elif field.type in (Decimal, UUID):
                 data[field.name] = field.type(data[field.name])
             elif issubclass(field.type, Enum):
                 data[field.name] = field.type(data[field.name])
             elif is_dataclass(field.type):
-                data[field.name] = field.type.load(data[field.name])
+                data[field.name] = field.type.load(data[field.name], unknown=unknown)
 
+        if unknown:
+            new_data = dict((k, data[k]) for k in names if k in data)
+            return cls(**new_data)
+        
         return cls(**data)
 
     @classmethod

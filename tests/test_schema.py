@@ -156,3 +156,22 @@ class TestSchema(unittest.TestCase):
 
         self.assertIsInstance(string, str)
         self.assertDictEqual(json.loads(string), expected)
+
+    def test_load_unknown(self):
+        data = {
+            "person": {"name": "John Doe", "age": 30, "hobby": ["walk"]},
+            "uid": "dc675e20-6e8b-4b05-a8ce-4459560526c3",
+            "office": "main",
+            "salary": 6500.1,
+            "level": "middle",
+            "registered": "2021-01-01",
+            "foo": "foo",
+            "bar": "bar",
+        }
+        instance = EmployeeSchema.load(data, unknown=True)
+
+        self.assertIsInstance(instance, EmployeeSchema)
+        self.assertIsInstance(instance.person, PersonSchema)
+        self.assertIsInstance(instance.salary, Decimal)
+        self.assertIsInstance(instance.level, Enum)
+        self.assertIsInstance(instance.registered, date)
