@@ -5,22 +5,29 @@ from functools import wraps
 def handler(func):
     @wraps(func)
     def wrapper(event, context):
-        response = {
-            "headers": {"Access-Control-Allow-Origin": "*"},
-            "statusCode": 200,
-            "body": "",
-        }
-        request = Request(event)
-        result = func(request)
+        try:
+            response = {
+                "headers": {"Access-Control-Allow-Origin": "*"},
+                "statusCode": 200,
+                "body": "",
+            }
+            request = Request(event)
+            result = func(request)
 
-        if isinstance(result, tuple) and isinstance(result[0], int):
-            response["statusCode"] = result[0]
-            response["body"] = result[1]
-        else:
-            response["body"] = result
+            if isinstance(result, tuple) and isinstance(result[0], int):
+                response["statusCode"] = result[0]
+                response["body"] = result[1]
+            else:
+                response["body"] = result
 
-        return response
-
+            return response
+        except:
+            return {
+                "statusCode": 500,
+                "body": json.dumps({
+                    "message": "Internal server error",
+                })
+            }
     return wrapper
 
 
