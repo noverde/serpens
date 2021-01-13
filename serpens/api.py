@@ -48,6 +48,9 @@ class AttrDict:
     def __repr__(self):
         return str(self.__dict__)
 
+    def get(self, name, default=None):
+        return getattr(self, name, default)
+
 
 class Request:
     def __init__(self, data):
