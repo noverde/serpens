@@ -1,5 +1,15 @@
 import json
 from functools import wraps
+import logging
+
+try:
+    from sentry_sdk import capture_exception
+    _SENTRY_SDK_MISSING_DEPS = False
+except ImportError as err:
+    _SENTRY_SDK_MISSING_DEPS = True
+
+
+logger = logging.getLogger(__name__)
 
 
 def handler(func):
@@ -21,11 +31,15 @@ def handler(func):
                 response["body"] = result
 
             return response
-        except:
+        except Exception as ex:
+            logger.error(str(ex))
+            if not _SENTRY_SDK_MISSING_DEPS:
+                capture_exception(ex)
+            
             return {
                 "statusCode": 500,
                 "body": json.dumps({
-                    "message": "Internal server error",
+                    "message": str(ex),
                 })
             }
     return wrapper
