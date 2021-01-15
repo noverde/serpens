@@ -7,15 +7,10 @@ import boto3
 from serpens import envvars
 
 
-def publish_message(category, event_type, aggregate_id, payload):
-
-    AWS_REGION = envvars.get("AWS_REGION")
-    AWS_ACCOUNT_ID = envvars.get("AWS_ACCOUNT_ID")
-    NOVERDE_EVENTS = envvars.get("NOVERDE_EVENTS")
+def publish_message(topic_arn, category, event_type, aggregate_id, payload):
 
     sns_client = boto3.client("sns")
 
-    arn = f"arn:aws:sns:{AWS_REGION}:{AWS_ACCOUNT_ID}:{NOVERDE_EVENTS}"
     message = {
         "default": json.dumps(
             {
@@ -31,7 +26,7 @@ def publish_message(category, event_type, aggregate_id, payload):
     }
 
     response = sns_client.publish(
-        TargetArn=arn,
+        TargetArn=topic_arn,
         Message=json.dumps(message),
         MessageStructure="json",
         MessageAttributes={
