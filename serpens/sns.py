@@ -16,7 +16,7 @@ def publish_message(topic_arn, message, attributes={}):
     return response
 
 
-def message_event(category, event_type, aggregate_id, payload):
+def build_event_message(category, event_type, aggregate_id, payload):
     message = {
         "default": json.dumps(
             {
