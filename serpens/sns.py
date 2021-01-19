@@ -1,8 +1,11 @@
 import json
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import boto3
+
+from serpens.schema import SchemaEncoder
 
 
 def publish_message(topic_arn, message, attributes={}):
@@ -16,23 +19,24 @@ def publish_message(topic_arn, message, attributes={}):
     return response
 
 
-def build_event_message(category, event_type, aggregate_id, payload):
-    message = {
-        "default": json.dumps(
-            {
-                "id": str(uuid4()),
-                "category": category,
-                "type": event_type,
-                "at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "aggregate_id": aggregate_id,
-                "version": "1.0",
-                "payload": payload,
-            }
-        )
-    }
+@dataclass
+class NoverdeEvents:
+    category: str
+    type: str
+    aggregate_id: str
+    payload: dict
+    id: UUID = field(default_factory=uuid4)
+    at: datetime = field(default_factory=datetime.utcnow)
+    version: str = "1.0"
 
-    attributes = {
-        "event_type": {"DataType": "String", "StringValue": event_type}
-    }
+    @property
+    def message(self):
+        msg = {"default": json.dumps(asdict(self), cls=SchemaEncoder)}
+        return msg
 
-    return message, attributes
+    @property
+    def attributes(self):
+        attrs = {
+            "event_type": {"DataType": "String", "StringValue": self.type}
+        }
+        return attrs
