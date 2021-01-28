@@ -32,3 +32,12 @@ def setup(database_url: str) -> Database:
     if drive == "sqlite":
         database_url = tmp[1]
     return Database(drive, database_url)
+
+
+def make_response(data, prefix=None, include_relationship=False):
+    if isinstance(data, list):
+        response = list(map(lambda x: x.to_dict(related_objects=include_relationship, with_collections=include_relationship), data))
+    else:
+        response = data.to_dict(related_objects=include_relationship, with_collections=include_relationship)
+    
+    return { prefix : response } if prefix else response
