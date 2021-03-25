@@ -2,6 +2,9 @@ import os
 
 from serpens import parameters
 from serpens import secrets
+from serpens import initializers
+
+initializers.load_env()
 
 
 def get(key, default=None):
