@@ -10,13 +10,13 @@ from serpens.schema import SchemaEncoder
 
 def publish_message(topic_arn, message, attributes={}):
     sns_client = boto3.client("sns")
-    response = sns_client.publish(
+
+    return sns_client.publish(
         TargetArn=topic_arn,
         Message=json.dumps(message),
         MessageStructure="json",
         MessageAttributes=attributes,
     )
-    return response
 
 
 @dataclass
@@ -31,10 +31,8 @@ class NoverdeEvents:
 
     @property
     def message(self):
-        msg = {"default": json.dumps(asdict(self), cls=SchemaEncoder)}
-        return msg
+        return {"default": json.dumps(asdict(self), cls=SchemaEncoder)}
 
     @property
     def attributes(self):
-        attrs = {"event_type": {"DataType": "String", "StringValue": self.type}}
-        return attrs
+        return {"event_type": {"DataType": "String", "StringValue": self.type}}
