@@ -1,3 +1,6 @@
 coverage==5.3
 black==20.8b1
 flake8==3.8.4
+
+boto3==1.16.31
+pony==0.7.14
