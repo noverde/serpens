@@ -22,10 +22,10 @@ def open_csv_reader(filename):
         # byte-order dependent. The mark simply announces that the file is
         # encoded in UTF-8. Use the 'utf-8-sig' codec to automatically skip the
         # mark if present for reading such files.
-        stream = open(filename, "r",  encoding='UTF-8-SIG')
+        stream = open(filename, "r", encoding="UTF-8-SIG")
         buffer = stream.read(2048)
     except UnicodeDecodeError:
-        stream = open(filename, "r", encoding='ISO-8859-1')
+        stream = open(filename, "r", encoding="ISO-8859-1")
         buffer = stream.read(2048)
 
     dialect = csv.Sniffer().sniff(buffer)
@@ -34,7 +34,7 @@ def open_csv_reader(filename):
     return csv.DictReader(stream, dialect=dialect)
 
 
-def open_csv_writer(filename, dialect='excel'):
-    stream = open(filename, 'w', encoding='UTF-8')
+def open_csv_writer(filename, dialect="excel"):
+    stream = open(filename, "w", encoding="UTF-8")
 
     return csv.writer(stream, dialect=dialect)

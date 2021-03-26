@@ -36,7 +36,5 @@ class NoverdeEvents:
 
     @property
     def attributes(self):
-        attrs = {
-            "event_type": {"DataType": "String", "StringValue": self.type}
-        }
+        attrs = {"event_type": {"DataType": "String", "StringValue": self.type}}
         return attrs

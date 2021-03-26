@@ -8,6 +8,7 @@ def test_migrate():
     path = "./tests/samples/migrations"
     database.migrate(database_url, path)
 
+
 @db_session
 def test_database():
     db = database.setup("sqlite://test.db")
