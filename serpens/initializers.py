@@ -7,7 +7,6 @@
 #
 
 import os
-import shlex
 import logging
 
 try:
@@ -19,27 +18,6 @@ except ImportError as err:
 _MISSING_DEPS_ERROR = "Missing module '%s'. Try: pip install %s"
 
 logger = logging.getLogger(__name__)
-
-
-def load_env(filename=".env") -> None:
-    if not os.path.isfile(filename):
-        return
-
-    try:
-        stream = open(filename, "r")
-        buffer = stream.readlines()
-        stream.close()
-    except Exception:
-        return
-
-    for line in buffer:
-        tokens = list(shlex.shlex(line, posix=True, punctuation_chars="="))
-        if len(tokens) < 2:
-            continue
-        if tokens[0] == "export" and tokens[2] == "=":
-            tokens.pop(0)
-
-        os.environ[tokens[0]] = tokens[2] if len(tokens) > 2 else ""
 
 
 def init_logger() -> None:
@@ -92,7 +70,6 @@ def init_sentry() -> None:
 
 
 def setup():
-    load_env()
     init_logger()
     if not _SENTRY_SDK_MISSING_DEPS:
         init_sentry()
