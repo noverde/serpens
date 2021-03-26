@@ -1,4 +1,5 @@
 import os
+import shlex
 
 from serpens import parameters
 from serpens import secrets
@@ -18,3 +19,27 @@ def get(key, default=None):
         return secrets.get(secret_name, secret_key)
 
     return result
+
+
+def load_dotenv(filename=".env") -> None:
+    if not os.path.isfile(filename):
+        return
+
+    try:
+        stream = open(filename, "r")
+        buffer = stream.readlines()
+        stream.close()
+    except Exception:
+        return
+
+    for line in buffer:
+        tokens = list(shlex.shlex(line, posix=True, punctuation_chars="="))
+        if len(tokens) < 2:
+            continue
+        if tokens[0] == "export" and tokens[2] == "=":
+            tokens.pop(0)
+
+        os.environ[tokens[0]] = tokens[2] if len(tokens) > 2 else ""
+
+
+load_dotenv()
