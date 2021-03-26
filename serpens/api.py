@@ -4,8 +4,9 @@ import logging
 
 try:
     from sentry_sdk import capture_exception
+
     _SENTRY_SDK_MISSING_DEPS = False
-except ImportError as err:
+except ImportError:
     _SENTRY_SDK_MISSING_DEPS = True
 
 
@@ -35,13 +36,16 @@ def handler(func):
             logger.error(str(ex))
             if not _SENTRY_SDK_MISSING_DEPS:
                 capture_exception(ex)
-            
+
             return {
                 "statusCode": 500,
-                "body": json.dumps({
-                    "message": str(ex),
-                })
+                "body": json.dumps(
+                    {
+                        "message": str(ex),
+                    }
+                ),
             }
+
     return wrapper
 
 
