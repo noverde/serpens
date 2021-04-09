@@ -19,7 +19,7 @@ def cached(cache_name, ttl_in_seconds):
                 logger.debug(
                     f"Getting value with key {cache_key} from cache {cache_name}"
                 )
-                return cached[cache_key]
+                return cached[cache_key]["value"]
 
             result = func(*args, **kwargs)
 
