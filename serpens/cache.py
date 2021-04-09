@@ -17,7 +17,7 @@ def cached(cache_name, ttl_in_seconds):
 
             if cache_key in cached and cached[cache_key]["expires_at"] > datetime.now():
                 logger.debug(
-                    f"Getting value with key {cache_key} from cache {cache_name}"
+                    f"Getting cached value from '{cache_name}:{cache_key}'"
                 )
                 return cached[cache_key]["value"]
 
