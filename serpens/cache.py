@@ -37,5 +37,5 @@ def cached(cache_name, ttl_in_seconds):
 
 
 def clear_cache(cache_name):
-    logger.debug(f"Cleaning cache with name {cache_name}")
+    logger.debug(f"Cleaning cache entry '{cache_name}'")
     cache.pop(cache_name, None)
