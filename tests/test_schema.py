@@ -88,6 +88,14 @@ class TestSchema(unittest.TestCase):
         self.assertIsInstance(instance.level, Enum)
         self.assertIsInstance(instance.registered, date)
 
+    def test_load_missing_required(self):
+        expected = ("'name' is a required field", "'age' is a required field")
+
+        with self.assertRaises(TypeError) as error:
+            PersonSchema.load({})
+
+        self.assertEqual(error.exception.args, expected)
+
     def test_load_many(self):
         data = [
             {
