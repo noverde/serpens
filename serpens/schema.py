@@ -6,8 +6,6 @@ from decimal import Decimal
 from enum import Enum
 from uuid import UUID
 
-from dateutil.parser import parse
-
 
 @dataclass
 class Schema:
@@ -35,9 +33,8 @@ class Schema:
             # cast special types
             if field.type in (date, datetime, time):
                 if isinstance(data[field.name], str) and "Z" in data[field.name]:
-                    data[field.name] = parse(data[field.name]).replace(tzinfo=None)
-                else:
-                    data[field.name] = field.type.fromisoformat(data[field.name])
+                    data[field.name] = data[field.name].replace("Z", "")
+                data[field.name] = field.type.fromisoformat(data[field.name])
             elif field.type in (Decimal, UUID):
                 data[field.name] = field.type(data[field.name])
             elif issubclass(field.type, Enum):
