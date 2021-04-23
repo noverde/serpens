@@ -32,7 +32,12 @@ class Schema:
                 continue
             # cast special types
             if field.type in (date, datetime, time):
-                data[field.name] = field.type.fromisoformat(data[field.name])
+                try:
+                    data[field.name] = field.type.fromisoformat(data[field.name])
+                except ValueError:
+                    data[field.name] = datetime.strptime(
+                        data[field.name], "%Y-%m-%dT%H:%M:%S.%fZ"
+                    )
             elif field.type in (Decimal, UUID):
                 data[field.name] = field.type(data[field.name])
             elif issubclass(field.type, Enum):
