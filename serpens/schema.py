@@ -22,7 +22,15 @@ class Schema:
 
     @classmethod
     def load(cls, dictionary, many=False):
-        data = deepcopy(dictionary)
+        data_copy = deepcopy(dictionary)
+        data = {}
+
+        if isinstance(data_copy, dict):
+            for key, value in data_copy.items():
+                if key in cls.__dict__["__dataclass_fields__"]:
+                    data[key] = value
+        else:
+            data = data_copy
 
         if many:
             return list(map(cls.load, data))
