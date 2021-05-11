@@ -52,6 +52,25 @@ class TestSchema(unittest.TestCase):
 
         self.assertEqual(error.exception.args, expected)
 
+    def test_ignore_unknown(self):
+        data = {
+            "person": {"name": "John Doe", "age": 30, "hobby": ["walk"]},
+            "uid": "dc675e20-6e8b-4b05-a8ce-4459560526c3",
+            "office": "main",
+            "salary": 6500.1,
+            "level": "middle",
+            "registered": "2021-01-01",
+            "foo": "bar",
+        }
+
+        instance = EmployeeSchema.load(data)
+
+        self.assertIsInstance(instance, EmployeeSchema)
+        self.assertIsInstance(instance.person, PersonSchema)
+        self.assertIsInstance(instance.salary, Decimal)
+        self.assertIsInstance(instance.level, Enum)
+        self.assertIsInstance(instance.registered, date)
+
     def test_load(self):
         data = {
             "person": {"name": "John Doe", "age": 30, "hobby": ["walk"]},
@@ -78,6 +97,7 @@ class TestSchema(unittest.TestCase):
                 "salary": 6500.1,
                 "level": "middle",
                 "registered": "2021-01-01",
+                "foo": "bar",
             }
         ]
         instances = EmployeeSchema.load(data, many=True)
