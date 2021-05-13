@@ -12,6 +12,8 @@ class TestSecrets(unittest.TestCase):
         m_boto3.client.return_value.get_secret_value.return_value = aws_response
         secret_value = secrets.get("Secret_Value")
         self.assertEqual(secret_value, aws_response["SecretString"])
+        secrets.get("Secret_Value")
+        self.assertEqual(m_boto3.client.call_count, 1)
 
     @patch("secrets.boto3")
     def test_retrieve_secret_value_with_keyname(self, m_boto3):
@@ -19,3 +21,5 @@ class TestSecrets(unittest.TestCase):
         m_boto3.client.return_value.get_secret_value.return_value = aws_response
         secret_value = secrets.get("Secret_Value", "key")
         self.assertEqual(secret_value, json.loads(aws_response["SecretString"])["key"])
+        secrets.get("Secret_Value", "key")
+        self.assertEqual(m_boto3.client.call_count, 1)

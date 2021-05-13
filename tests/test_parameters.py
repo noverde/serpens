@@ -11,3 +11,5 @@ class TestParameters(unittest.TestCase):
         m_boto3.client.return_value.get_parameter.return_value = aws_response
         parameter_value = parameters.get("stored_parameter")
         self.assertEqual(parameter_value, aws_response["Parameter"]["Value"])
+        parameters.get("stored_parameter")
+        self.assertEqual(m_boto3.client.call_count, 1)
