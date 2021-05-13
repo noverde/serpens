@@ -2,7 +2,10 @@ import json
 
 import boto3
 
+from cache import cached
 
+
+@cached("secrets", 900)
 def get(secret_id, keyname=None):
     client = boto3.client("secretsmanager")
 
