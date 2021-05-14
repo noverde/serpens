@@ -1,6 +1,6 @@
 import json
-from functools import wraps
 import logging
+from functools import wraps
 
 try:
     from sentry_sdk import capture_exception
@@ -77,6 +77,8 @@ class Request:
         self.body = self._body()
         self.path = self._path()
         self.query = self._query()
+        self.headers = self._headers()
+        self.identity = self._identity()
 
     def _authorizer(self):
         context = self.data.get("requestContext") or {}
@@ -97,3 +99,12 @@ class Request:
     def _query(self):
         query = self.data.get("queryStringParameters") or {}
         return AttrDict(query)
+
+    def _headers(self):
+        headers = self.data.get("headers") or {}
+        return AttrDict(headers)
+
+    def _identity(self):
+        context = self.data.get("requestContext") or {}
+        identity = context.get("identity") or {}
+        return AttrDict(identity)

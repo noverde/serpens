@@ -35,10 +35,14 @@ class TestApiAttrDict(unittest.TestCase):
 class TestApiRequest(unittest.TestCase):
     def test_instance(self):
         data = {
-            "requestContext": {"authorizer": {"foo": "bar", "baz": 1}},
+            "requestContext": {
+                "authorizer": {"foo": "bar", "baz": 1},
+                "identity": {"sourceIp": "127.0.0.1"},
+            },
             "body": '{"ping": "pong"}',
             "pathParameters": {"one": 1, "two": 2},
             "queryStringParameters": {"limit": 10, "page": 2},
+            "headers": {"Accept": "*/*"},
         }
         instance = api.Request(data)
 
@@ -47,6 +51,8 @@ class TestApiRequest(unittest.TestCase):
         self.assertTrue(hasattr(instance, "body"))
         self.assertTrue(hasattr(instance, "path"))
         self.assertTrue(hasattr(instance, "query"))
+        self.assertTrue(hasattr(instance, "headers"))
+        self.assertTrue(hasattr(instance, "identity"))
         self.assertEqual(instance.authorizer.foo, "bar")
         self.assertEqual(instance.authorizer.baz, 1)
         self.assertEqual(instance.body, {"ping": "pong"})
@@ -54,6 +60,8 @@ class TestApiRequest(unittest.TestCase):
         self.assertEqual(instance.path.two, 2)
         self.assertEqual(instance.query.limit, 10)
         self.assertEqual(instance.query.page, 2)
+        self.assertEqual(instance.headers.Accept, "*/*")
+        self.assertEqual(instance.identity.sourceIp, "127.0.0.1")
 
 
 class TestApiHandler(unittest.TestCase):
