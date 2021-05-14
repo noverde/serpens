@@ -1,6 +1,6 @@
 import boto3
 
-from cache import cached
+from serpens.cache import cached
 
 
 @cached("parameters", 900)
