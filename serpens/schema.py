@@ -1,4 +1,5 @@
 import json
+import re
 from copy import deepcopy
 from dataclasses import asdict, dataclass, fields, is_dataclass
 from datetime import date, datetime, time
@@ -50,7 +51,23 @@ class Schema:
             elif is_dataclass(field.type):
                 data[field.name] = field.type.load(data[field.name])
 
-        return cls(**data)
+        try:
+            instance = cls(**data)
+        except TypeError as error:
+            message = error.args[0] if error.args else ""
+            pattern = (
+                r"^__init__\(\) missing \d+ required positional "
+                r"arguments?: ('\w+',?\s?(and\s?)?)+$"
+            )
+
+            if re.fullmatch(pattern, message):
+                matchs = re.findall(r"('\w+')", message)
+                missing = [f"{m} is a required field" for m in matchs]
+                raise TypeError(*missing)
+
+            raise error
+
+        return instance
 
     @classmethod
     def loads(cls, json_string, many=False):
