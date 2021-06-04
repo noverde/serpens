@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 def handler(func):
     @wraps(func)
     def wrapper(event, context):
+        logger.debug(f"Received data: {event}")
+
         try:
             response = {
                 "headers": {"Access-Control-Allow-Origin": "*"},
