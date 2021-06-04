@@ -75,9 +75,9 @@ class Schema:
         return list(map(cls.load, data)) if many else cls.load(data)
 
     @classmethod
-    def dump(cls, instance, many=False):
+    def dump(cls, instance, many=False, decoder=json.JSONDecoder):
         string = cls.dumps(instance, many)
-        return json.loads(string)
+        return json.loads(string, cls=decoder)
 
     @classmethod
     def dumps(cls, instance, many=False):
