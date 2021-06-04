@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import Mock, patch
 
-import pytest
 import s3
 
 
