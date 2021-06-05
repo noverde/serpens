@@ -35,9 +35,7 @@ class EmployeeSchema(Schema):
 
 class TestSchema(unittest.TestCase):
     def test_missing_required(self):
-        expected = (
-            ("__init__() missing 2 required positional " + "arguments: 'name' and 'age'"),
-        )
+        expected = (("__init__() missing 2 required positional " + "arguments: 'name' and 'age'"),)
 
         with self.assertRaises(TypeError) as error:
             PersonSchema()

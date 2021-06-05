@@ -25,9 +25,7 @@ def migrate(database_url, migrations_path="./migrations"):
 
 def setup(database_url: str) -> Database:
     if PONY_NOT_FOUND:
-        raise Exception(
-            "Couldn't setup database because PonyORM wasn't present in modules"
-        )
+        raise Exception("Couldn't setup database because PonyORM wasn't present in modules")
 
     tmp = database_url.split("://")
     drive = tmp[0]
