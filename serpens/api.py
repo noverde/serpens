@@ -29,9 +29,12 @@ def handler(func):
 
             if isinstance(result, tuple) and isinstance(result[0], int):
                 response["statusCode"] = result[0]
-                response["body"] = result[1]
-            else:
-                response["body"] = result
+                result = result[1]
+
+            if isinstance(result, dict):
+                result = json.dumps(result)
+
+            response["body"] = result
 
             return response
         except Exception as ex:
