@@ -1,6 +1,7 @@
 import json
 import logging
 from functools import wraps
+from dataclasses import is_dataclass, asdict
 
 try:
     from sentry_sdk import capture_exception
@@ -30,6 +31,9 @@ def handler(func):
             if isinstance(result, tuple) and isinstance(result[0], int):
                 response["statusCode"] = result[0]
                 result = result[1]
+
+            if is_dataclass(result):
+                result = asdict(result)
 
             if isinstance(result, dict):
                 result = json.dumps(result)
