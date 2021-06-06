@@ -40,4 +40,4 @@ test:
 	coverage run --source=$(PROJECT_PATH) --omit=dependencies -m unittest
 
 coverage: test .coverage
-	coverage report --fail-under=60
+	coverage report --fail-under=75
