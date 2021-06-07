@@ -1,14 +1,10 @@
 import unittest
-
-from serpens import document
-
+from dataclasses import dataclass
 from decimal import Decimal
 
-from moto import mock_dynamodb2
-
 import boto3
-
-from dataclasses import dataclass
+from moto import mock_dynamodb2
+from serpens import document
 
 
 @dataclass
@@ -61,3 +57,8 @@ class TestBaseDocument(unittest.TestCase):
         self.assertEqual(my_document.id, "2")
         self.assertEqual(my_document.name, "Test2")
         self.assertEqual(my_document.average, Decimal(15))
+
+    def test_get_item_item_not_found(self):
+        my_document = MyDocument.get_by_key({"id": "3"})
+
+        self.assertIsNone(my_document)
