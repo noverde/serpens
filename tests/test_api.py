@@ -138,3 +138,20 @@ class TestApiHandler(unittest.TestCase):
         self.assertEqual(response["headers"], expected["headers"])
         self.assertEqual(response["statusCode"], expected["statusCode"])
         self.assertDictEqual(json.loads(response["body"]), expected["body"])
+
+    def test_handler_error(self):
+        event = {
+            "requestContext": {"authorizer": {"foo": "bar", "baz": 1}},
+            "body": '{"ping": "pong"}',
+        }
+        context = {"nothing": "here"}
+
+        @api.handler
+        def handler(request):
+            raise Exception()
+            return {}
+
+        response = handler(event, context)
+
+        self.assertIn("statusCode", response)
+        self.assertEqual(response["statusCode"], 500)
