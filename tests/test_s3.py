@@ -51,3 +51,10 @@ class TestS3(unittest.TestCase):
 
         self.assertTrue(response)
         m_boto3.client.return_value.list_objects_v2.assert_called_once()
+
+    @patch("s3.boto3")
+    def test_get_document_exception(self, m_boto3):
+        m_boto3.client.return_value.get_object.side_effect = Exception()
+
+        response = s3.get_file("bar", "baz")
+        self.assertIsNone(response)
