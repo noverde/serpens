@@ -3,6 +3,8 @@ import logging
 from functools import wraps
 from dataclasses import is_dataclass, asdict
 
+import initializers
+
 try:
     from sentry_sdk import capture_exception
 
@@ -10,6 +12,8 @@ try:
 except ImportError:
     _SENTRY_SDK_MISSING_DEPS = True
 
+
+initializers.setup()
 
 logger = logging.getLogger(__name__)
 
