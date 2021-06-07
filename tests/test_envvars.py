@@ -28,6 +28,10 @@ class TestEnvVars(unittest.TestCase):
         envvars.load_dotenv("invalid_file.txt")
         self.assertIsNone(os.getenv("FOO"))
 
+    def test_get(self):
+        os.environ["FOO"] = "BAR"
+        self.assertEqual(envvars.get("FOO"), "BAR")
+
     @patch("envvars.parameters.get")
     def test_get_parameter(self, mock_params):
         mock_params.return_value = "stored_value"
