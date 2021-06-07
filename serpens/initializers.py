@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 
 def init_logger() -> None:
+    if os.getenv("LOG_LEVEL") is None:
+        return
+
     level = logging.getLevelName(os.getenv("LOG_LEVEL", "INFO").upper())
 
     # It seens AWS Lambda Python runtime pre-configures a logging handler, so
@@ -39,6 +42,9 @@ def init_logger() -> None:
 
 
 def init_sentry() -> None:
+    if os.getenv("SENTRY_DSN") is None:
+        return
+
     if _SENTRY_SDK_MISSING_DEPS:
         raise ImportError(_MISSING_DEPS_ERROR % _SENTRY_SDK_MISSING_DEPS)
 
