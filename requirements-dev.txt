@@ -5,3 +5,4 @@ flake8==3.8.4
 boto3==1.16.31
 pony==0.7.14
 moto==2.0.8
+sentry-sdk==0.19.4
