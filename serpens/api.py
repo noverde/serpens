@@ -1,9 +1,9 @@
 import json
 import logging
+from dataclasses import asdict, is_dataclass
 from functools import wraps
-from dataclasses import is_dataclass, asdict
 
-import initializers
+from serpens import initializers
 
 try:
     from sentry_sdk import capture_exception
