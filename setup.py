@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="serpens",
-    version="0.1.0",
+    version="1.8.4",
     description="A set of Python utilities, recipes and snippets",
     author="Everaldo Canuto",
     author_email="everaldo.canuto@gmail.com",
