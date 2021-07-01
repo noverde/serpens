@@ -1,6 +1,8 @@
 import json
 import unittest
 from dataclasses import dataclass
+from datetime import datetime
+from copy import deepcopy
 
 import api
 
@@ -90,7 +92,11 @@ class TestApiHandler(unittest.TestCase):
 
         @api.handler
         def handler_with_dict(request):
-            res = {"foo": request.authorizer.foo, "ping": request.body["ping"]}
+            res = {
+                "foo": request.authorizer.foo,
+                "ping": request.body["ping"],
+                "timestemp": datetime(2021, 7, 1),
+            }
             return 200, res
 
         @api.handler
@@ -128,7 +134,9 @@ class TestApiHandler(unittest.TestCase):
         self.assertIn("body", response)
         self.assertEqual(response["headers"], expected["headers"])
         self.assertEqual(response["statusCode"], expected["statusCode"])
-        self.assertDictEqual(json.loads(response["body"]), expected["body"])
+        expected_copy = deepcopy(expected)
+        expected_copy["body"]["timestemp"] = "2021-07-01T00:00:00"
+        self.assertDictEqual(json.loads(response["body"]), expected_copy["body"])
 
         response = handler_with_dataclass(event, context)
 
