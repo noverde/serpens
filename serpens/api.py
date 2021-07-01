@@ -2,6 +2,7 @@ import json
 import logging
 from dataclasses import asdict, is_dataclass
 from functools import wraps
+from serpens.schema import SchemaEncoder
 
 from serpens import initializers
 
@@ -40,7 +41,7 @@ def handler(func):
                 result = asdict(result)
 
             if isinstance(result, dict):
-                result = json.dumps(result)
+                result = json.dumps(result, cls=SchemaEncoder)
 
             response["body"] = result
 
