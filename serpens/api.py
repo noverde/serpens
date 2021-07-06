@@ -43,6 +43,12 @@ def handler(func):
             if isinstance(result, dict):
                 result = json.dumps(result, cls=SchemaEncoder)
 
+            if isinstance(result, list):
+                result = json.dumps(
+                    list(map(lambda obj: obj, result)),
+                    cls=SchemaEncoder,
+                )
+
             response["body"] = result
 
             return response
