@@ -158,8 +158,12 @@ class TestApiHandler(unittest.TestCase):
         self.assertEqual(response["statusCode"], expected["statusCode"])
         expected_copy = deepcopy(expected)
         expected_copy["body"]["timestemp"] = "2021-07-01T00:00:00"
-        self.assertIsInstance(json.loads(response["body"]), list)
-        self.assertDictEqual(json.loads(response["body"])[0], expected_copy["body"])
+
+        body = json.loads(response["body"])
+
+        self.assertIsInstance(body, list)
+        self.assertIsInstance(body[0], dict)
+        self.assertDictEqual(body[0], expected_copy["body"])
 
         response = handler_with_dataclass(event, context)
 
