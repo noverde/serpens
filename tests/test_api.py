@@ -100,6 +100,17 @@ class TestApiHandler(unittest.TestCase):
             return 200, res
 
         @api.handler
+        def handler_with_list(request):
+            res = [
+                {
+                    "foo": request.authorizer.foo,
+                    "ping": request.body["ping"],
+                    "timestemp": datetime(2021, 7, 1),
+                }
+            ]
+            return 200, res
+
+        @api.handler
         def handler_with_dataclass(request):
             @dataclass
             class FooBar:
@@ -137,6 +148,22 @@ class TestApiHandler(unittest.TestCase):
         expected_copy = deepcopy(expected)
         expected_copy["body"]["timestemp"] = "2021-07-01T00:00:00"
         self.assertDictEqual(json.loads(response["body"]), expected_copy["body"])
+
+        response = handler_with_list(event, context)
+
+        self.assertIn("headers", response)
+        self.assertIn("statusCode", response)
+        self.assertIn("body", response)
+        self.assertEqual(response["headers"], expected["headers"])
+        self.assertEqual(response["statusCode"], expected["statusCode"])
+        expected_copy = deepcopy(expected)
+        expected_copy["body"]["timestemp"] = "2021-07-01T00:00:00"
+
+        body = json.loads(response["body"])
+
+        self.assertIsInstance(body, list)
+        self.assertIsInstance(body[0], dict)
+        self.assertDictEqual(body[0], expected_copy["body"])
 
         response = handler_with_dataclass(event, context)
 

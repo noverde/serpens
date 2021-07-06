@@ -40,7 +40,7 @@ def handler(func):
             if is_dataclass(result):
                 result = asdict(result)
 
-            if isinstance(result, dict):
+            if isinstance(result, (dict, list)):
                 result = json.dumps(result, cls=SchemaEncoder)
 
             response["body"] = result
