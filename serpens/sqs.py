@@ -1,8 +1,8 @@
-from json.decoder import JSONDecodeError
 import boto3
 import logging
 import json
 
+from json.decoder import JSONDecodeError
 from uuid import UUID
 from typing import Union
 from dataclasses import dataclass
@@ -27,7 +27,6 @@ def handler(func):
     @wraps(func)
     def wrapper(event: dict, context: dict):
         logger.debug(f"Received data: {event}")
-        # TODO: validar se record existe
 
         for record_raw in event["Records"]:
             record = Record(
@@ -64,7 +63,7 @@ class Record:
         if self.attributes and isinstance(self.attributes, str):
             self.attributes = json.loads(self.attributes)
 
-        if self.attributes and isinstance(self.message_attributes, str):
+        if self.message_attributes and isinstance(self.message_attributes, str):
             self.message_attributes = json.loads(self.message_attributes)
 
         self.body = self._load_body()
