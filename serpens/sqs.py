@@ -7,7 +7,7 @@ from uuid import UUID
 from typing import Union
 from dataclasses import dataclass
 from functools import wraps
-
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +29,24 @@ def handler(func):
         logger.debug(f"Received data: {event}")
 
         for record_raw in event["Records"]:
+            raw_attrs = record_raw.get("attributes", None)
+            attrs = None
+
+            if raw_attrs:
+                attrs = Attributes(
+                    approximate_receive_count=raw_attrs.get("ApproximateReceiveCount", None),
+                    sent_timestamp=raw_attrs.get("SentTimestamp", None),
+                    sender_id=raw_attrs.get("SenderId", None),
+                    approximate_first_receive_timestamp=raw_attrs.get(
+                        "ApproximateFirstReceiveTimestamp", None
+                    ),
+                )
+
             record = Record(
                 message_id=record_raw.get("messageId", None),
                 receipt_handle=record_raw.get("receiptHandle", None),
                 body=record_raw.get("body", None),
-                attributes=record_raw.get("attributes", None),
+                attributes=attrs,
                 message_attributes=record_raw.get("messageAttributes", None),
                 md5_of_message_attributes=record_raw.get("md5OfMessageAttributes", None),
                 md5_of_body=record_raw.get("md5OfBody", None),
@@ -47,22 +60,34 @@ def handler(func):
 
 
 @dataclass
-class Record:
-    body: Union[str, dict]
-    message_id: UUID = None
-    receipt_handle: str = None
-    attributes: dict = None
-    message_attributes: dict = None
-    md5_of_message_attributes: str = None
-    md5_of_body: str = None
-    event_source: str = None
-    event_source_arn: str = None
-    aws_region: str = None
+class Attributes:
+    approximate_receive_count: int
+    sent_timestamp: datetime
+    sender_id: str
+    approximate_first_receive_timestamp: datetime
 
     def __post_init__(self):
-        if self.attributes and isinstance(self.attributes, str):
-            self.attributes = json.loads(self.attributes)
+        self.sent_timestamp = datetime.fromtimestamp(float(self.sent_timestamp) / 1000.0)
+        self.approximate_first_receive_timestamp = datetime.fromtimestamp(
+            float(self.approximate_first_receive_timestamp) / 1000.0
+        )
+        self.approximate_receive_count = int(self.approximate_receive_count)
 
+
+@dataclass
+class Record:
+    message_id: UUID
+    receipt_handle: str
+    body: Union[str, dict]
+    attributes: Attributes
+    message_attributes: dict
+    md5_of_message_attributes: str
+    md5_of_body: str
+    event_source: str
+    event_source_arn: str
+    aws_region: str
+
+    def __post_init__(self):
         if self.message_attributes and isinstance(self.message_attributes, str):
             self.message_attributes = json.loads(self.message_attributes)
 
