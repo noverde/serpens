@@ -51,7 +51,7 @@ def handler(func):
                 md5_of_message_attributes=record_raw.get("md5OfMessageAttributes", None),
                 md5_of_body=record_raw.get("md5OfBody", None),
                 event_source=record_raw.get("eventSource", None),
-                event_source_arn=record_raw.get("eventSourceARN", None),
+                event_source_arn=EventSourceArn(record_raw.get("eventSourceARN", None)),
                 aws_region=record_raw.get("awsRegion", None),
             )
             func(record)
@@ -75,6 +75,16 @@ class Attributes:
 
 
 @dataclass
+class EventSourceArn:
+    raw: str
+
+    @property
+    def queue_name(self):
+        if self.raw:
+            return self.raw.split(":")[-1]
+
+
+@dataclass
 class Record:
     message_id: UUID
     receipt_handle: str
@@ -84,7 +94,7 @@ class Record:
     md5_of_message_attributes: str
     md5_of_body: str
     event_source: str
-    event_source_arn: str
+    event_source_arn: EventSourceArn
     aws_region: str
 
     def __post_init__(self):

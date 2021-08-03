@@ -1,9 +1,10 @@
-from datetime import datetime
-import unittest
-from unittest.mock import patch
-
 import json
 import sqs
+import unittest
+
+from datetime import datetime
+from unittest.mock import patch
+from sqs import Record, EventSourceArn, Attributes
 
 
 class TestPublishMessage(unittest.TestCase):
@@ -37,6 +38,7 @@ class TestSQSHandler(unittest.TestCase):
                         "ApproximateFirstReceiveTimestamp": "1627916182943",
                     },
                     "body": '{"foo":"bar"}',
+                    "eventSourceARN": "arn:aws:sqs:us-east-1:667031852265:f1",
                 }
             ]
         }
@@ -46,13 +48,13 @@ class TestSQSHandler(unittest.TestCase):
         record = None
 
         @sqs.handler
-        def handler(message: sqs.Record):
+        def handler(message: Record):
             nonlocal record
             record = message
 
         handler(self.event, self.context)
 
-        self.assertIsInstance(record, sqs.Record)
+        self.assertIsInstance(record, Record)
         self.assertIsInstance(record.body, dict)
         self.assertIsInstance(record.attributes.sent_timestamp, datetime)
         self.assertIsInstance(
@@ -60,6 +62,7 @@ class TestSQSHandler(unittest.TestCase):
             datetime,
         )
         self.assertEqual(record.body["foo"], "bar")
+        self.assertIsInstance(record.event_source_arn, EventSourceArn)
 
 
 class TestSQSRecord(unittest.TestCase):
@@ -71,12 +74,6 @@ class TestSQSRecord(unittest.TestCase):
                     "messageId": "2b935837-2f81-42e6-a78c-07e59643526d",
                     "receiptHandle": "AQEBcnawFtnOjnQZ",
                     "body": '{"foo":"bar"}',
-                    "attributes": {
-                        "ApproximateReceiveCount": "1",
-                        "SentTimestamp": "1627916182931",
-                        "SenderId": "667031852265",
-                        "ApproximateFirstReceiveTimestamp": "1627916182943",
-                    },
                     "messageAttributes": {
                         "cidade": {
                             "stringValue": "sobradinho",
@@ -97,7 +94,7 @@ class TestSQSRecord(unittest.TestCase):
 
     def test_create_record(self):
         record_raw = self.event["Records"][0]
-        record = sqs.Record(
+        record = Record(
             message_id=record_raw.get("messageId", None),
             receipt_handle=record_raw.get("receiptHandle", None),
             body=record_raw.get("body", None),
@@ -122,7 +119,7 @@ class TestSQSRecord(unittest.TestCase):
     def test_create_record_with_body_as_str(self):
         self.event = {"Records": [{"body": "some value"}]}
         record_raw = self.event["Records"][0]
-        record = sqs.Record(
+        record = Record(
             message_id=None,
             receipt_handle=None,
             body=record_raw.get("body", None),
@@ -147,7 +144,7 @@ class TestSQSRecord(unittest.TestCase):
             ]
         }
         record_raw = event["Records"][0]
-        record = sqs.Record(
+        record = Record(
             message_id=None,
             receipt_handle=None,
             body=record_raw.get("body", None),
@@ -174,7 +171,7 @@ class TestSQSAttributes(unittest.TestCase):
         }
 
     def test_create_attribute(self):
-        attributes = sqs.Attributes(
+        attributes = Attributes(
             approximate_receive_count=self.raw_attrs["ApproximateReceiveCount"],
             sent_timestamp=self.raw_attrs["SentTimestamp"],
             sender_id=self.raw_attrs["SenderId"],
@@ -187,3 +184,12 @@ class TestSQSAttributes(unittest.TestCase):
             attributes.approximate_first_receive_timestamp,
             datetime(2021, 8, 2, 11, 56, 22, 943000),
         )
+
+
+class TestSQSEventSourceArn(unittest.TestCase):
+    def test_create(self):
+        arn_raw = "arn:aws:sqs:us-east-1:667031852265:f1"
+        event_source_arn = sqs.EventSourceArn(arn_raw)
+
+        self.assertEqual(event_source_arn.raw, arn_raw)
+        self.assertEqual(event_source_arn.queue_name, "f1")
