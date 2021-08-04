@@ -1,5 +1,4 @@
-import database
-import envvars
+from serpens import database, envvars
 
 
 def migrate(event, context):
