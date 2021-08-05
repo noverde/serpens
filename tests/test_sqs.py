@@ -170,7 +170,10 @@ class TestSQSAttributes(unittest.TestCase):
             "ApproximateFirstReceiveTimestamp": "1627916182943",
         }
 
-    def test_create_attribute(self):
+    @patch("sqs.datetime")
+    def test_create_attribute(self, m_datetime):
+        m_datetime.fromtimestamp = datetime.utcfromtimestamp
+
         attributes = Attributes(
             approximate_receive_count=self.raw_attrs["ApproximateReceiveCount"],
             sent_timestamp=self.raw_attrs["SentTimestamp"],
@@ -178,11 +181,11 @@ class TestSQSAttributes(unittest.TestCase):
             approximate_first_receive_timestamp=self.raw_attrs["ApproximateFirstReceiveTimestamp"],
         )
         self.assertEqual(attributes.approximate_receive_count, 1)
-        self.assertEqual(attributes.sent_timestamp, datetime(2021, 8, 2, 11, 56, 22, 931000))
+        self.assertEqual(attributes.sent_timestamp, datetime(2021, 8, 2, 14, 56, 22, 931000))
         self.assertEqual(attributes.sender_id, self.raw_attrs["SenderId"])
         self.assertEqual(
             attributes.approximate_first_receive_timestamp,
-            datetime(2021, 8, 2, 11, 56, 22, 943000),
+            datetime(2021, 8, 2, 14, 56, 22, 943000),
         )
 
 
