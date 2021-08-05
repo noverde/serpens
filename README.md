@@ -45,5 +45,5 @@ class Attributes:
 
 class EventSourceArn:
     raw: str
-    queue_name: str
+    queue_name: str # is a property
 ```
