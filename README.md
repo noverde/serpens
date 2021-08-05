@@ -22,7 +22,7 @@ def message_processor(record: sqs.Record):
 
 ### Record
 
-- The function that will process each sqs message receive a instance of *sqs.Record* dataclass. This class has the follow structure.
+- The function that will process each sqs message receive a instance of *sqs.Record* dataclass. This class has the follow structure:
 
 ```python
 class Record:
