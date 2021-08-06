@@ -2,8 +2,8 @@
 
 A set of Python utilities, recipes and snippets
 
+- [SQS Utilities](#sqs-utilities)
 - [API Utilities](#api-utilities)
-- [SQS Utilities](sqs-utilities)
 
 ## SQS Utilities
 
