@@ -4,6 +4,7 @@ A set of Python utilities, recipes and snippets
 
 - [SQS Utilities](#sqs-utilities)
 - [API Utilities](#api-utilities)
+- [Schema](#schema)
 
 ## SQS Utilities
 
@@ -86,4 +87,71 @@ from serpens.api import AttrDict
 
 obj = AttrDict({"foo": "bar"})
 obj.foo # bar
+```
+
+## Schema
+- The Schema is a base class for create new classes with follow features:
+> - Static type check
+> - Method for convert a object to dict
+> - Method for create a object from json
+> - Method for create object from dict
+> - Method for dumps a object to string
+
+##### Create a schema
+
+```python
+from serpens.schema import Schema
+from dataclasses import dataclass
+
+@dataclass
+class PersonSchema(Schema):
+    name: str
+    age: int
+```
+##### Create a schema object
+
+```python
+person = PersonSchema('Mike', 30)
+
+print(person.name)
+print(person.age)
+```
+
+##### Create a schema object from a dict.
+
+```python
+person_obj = PersonSchema.load({'name': 'Mike', 'age': 18})
+
+print(person_obj.name)
+print(person_obj.age)
+```
+
+##### Create a schema object from a json string.
+
+```python
+import json
+data = json.dumps({'name': 'mike', 'age': 20})
+person_obj = PersonSchema.loads(data)
+
+print(person_obj.name)
+print(person_obj.age)
+```
+
+##### Convert a schema object to dict.
+
+```python
+p1 = PersonSchema('Mike', 30)
+person_dct = PersonSchema.dump(p1)
+
+print(person_dct['name'])
+print(person_dct['age'])
+```
+
+##### Convert a schema object to json string.
+
+```python
+p1 = PersonSchema('Mike', 30)
+person_str = PersonSchema.dumps(p1)
+
+print(person_str)
 ```
