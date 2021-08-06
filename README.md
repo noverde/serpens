@@ -2,6 +2,7 @@
 
 A set of Python utilities, recipes and snippets
 
+- [API Utilities](api-utilities)
 - [SQS Utilities](sqs-utilities)
 
 ## SQS Utilities
@@ -46,4 +47,43 @@ class Attributes:
 class EventSourceArn:
     raw: str
     queue_name: str # is a property
+```
+
+## API Utilities
+
+- This utility is a wrapper for simplify the work with lambda handlers. The decorator ```api.handler``` will decorate a function that will process a lambda and this function will receive a ```request``` argument (from type api.Request).
+
+
+```python
+from serpens import api
+
+@api.handler
+def lambda_handler(request: api.Request):
+    # Code to process the lambda
+    print(request.body)
+```
+
+#### *Request class*
+
+- The function that will process the lambda will receive a instance of *sqs.Request* dataclass. This class has the follow structure:
+
+```python
+from serpens.api import AttrDict
+
+class Request:
+    authorizer: AttrDict
+    body: Union[str, dict]
+    path: AttrDict
+    query: AttrDict
+    headers: AttrDict
+    identity: AttrDict
+```
+
+- *Note*: the objects from type ```AttrDict``` are objects built by a dict where the key from dict is a attribute of object. For example:
+
+```python
+from serpens.api import AttrDict
+
+obj = AttrDict({"foo": "bar"})
+obj.foo # bar
 ```
