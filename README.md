@@ -5,6 +5,7 @@ A set of Python utilities, recipes and snippets
 - [SQS Utilities](#sqs-utilities)
 - [API Utilities](#api-utilities)
 - [Schema](#schema)
+- [CSV Utils](#csv-utils)
 
 ## SQS Utilities
 
@@ -154,4 +155,52 @@ p1 = PersonSchema('Mike', 30)
 person_str = PersonSchema.dumps(p1)
 
 print(person_str)
+```
+
+## CSV Utils
+
+- Utility for read and write csv. This utility is useful for read csv with BOM or read csv encoded as ISO-8859. 
+
+##### Read CSV
+
+```python
+from serpens import csvutils as csv
+
+dict_reader = csv.open_csv_reader('fruits_iso8859.csv')
+
+for record in dict_reader:
+    print(record)
+```
+
+##### Write CSV
+
+```python
+from serpens import csvutils as csv
+
+writer = csv.open_csv_writer('out.csv')
+writer.writerow(["id", "name"])
+writer.writerow(["1", "Açaí"])
+
+del writer
+```
+
+## Database
+
+This utilities are useful for works with database. At this moment exists two function for ....
+
+```python
+from serpens import database
+
+database_url = "postgres://user:password@host/db"
+path = "/path/to/migrations" # yoyo migrations
+
+database.migrate(database_url, path)
+```
+
+```python
+from serpens import database
+
+database_url = "postgres://user:password@host/db"
+db = database.setup(database_url)
+print(db.provider_name)
 ```
