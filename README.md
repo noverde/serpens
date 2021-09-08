@@ -6,6 +6,7 @@ A set of Python utilities, recipes and snippets
 - [API Utilities](#api-utilities)
 - [Schema](#schema)
 - [CSV Utils](#csv-utils)
+- [DynamoDB Documents](#dynamodb-documents)
 
 ## SQS Utilities
 
@@ -186,6 +187,7 @@ del writer
 
 ## Database
 
+TODO: 
 This utilities are useful for works with database. At this moment exists two function for ....
 
 ```python
@@ -203,4 +205,46 @@ from serpens import database
 database_url = "postgres://user:password@host/db"
 db = database.setup(database_url)
 print(db.provider_name)
+```
+
+## DynamoDB Documents
+
+The serpens provide a base class (called *BaseDocument*) for work with tables from DynamoDB. 
+
+##### Create a document mapping a DynamoDB table
+
+```python
+from serpens.document import BaseDocument
+from dataclasses import dataclass
+
+@dataclass
+class PersonDocument(BaseDocument):
+    _table_name_ = 'person'
+    id: str
+    name: str
+```
+
+##### Save data in DynamoDB table
+
+```python
+person = PersonDocument(id="1", name="Ana")
+person.save()
+```
+
+##### Get data from key
+
+- Obs: If the table not has item by key from search will be return ```None```.
+
+```python
+person = PersonDocument.get_by_key({"id": "1"})
+
+person.id # 1
+person.name # Ana
+```
+
+##### Get table
+
+```python
+person_table = PersonDocument.get_table()
+person_table # dynamodb.Table(name='person')
 ```
