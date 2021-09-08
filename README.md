@@ -188,7 +188,11 @@ del writer
 ## Database
 
 TODO: 
-This utilities are useful for works with database. At this moment exists two function for ....
+This utilities are useful for works with database.
+
+##### Migrate databases
+
+- This migrations use yoyo-migration.
 
 ```python
 from serpens import database
@@ -198,6 +202,10 @@ path = "/path/to/migrations" # yoyo migrations
 
 database.migrate(database_url, path)
 ```
+
+##### Create a Pony Database instance
+
+"*The Database object manages database connections using a connection pool.*"
 
 ```python
 from serpens import database
