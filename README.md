@@ -12,7 +12,7 @@ A set of Python utilities, recipes and snippets
 
 - This utility is a decorator that iterate by each sqs record.
 
-- For each sqs record will be inserted de *record object (from type sqs.Record)* as  argument that will to process the sqs messages.
+- For each sqs record will be inserted a *record object (from type sqs.Record)* as  argument that will process the sqs messages.
 
 
 ```python
@@ -26,7 +26,7 @@ def message_processor(record: sqs.Record):
 
 ### Record
 
-- The function that will process each sqs message receive a instance of *sqs.Record* dataclass. This class has the follow structure:
+- The function that will process each sqs message receive an instance of *sqs.Record* dataclass. This class has the follow structure:
 
 ```python
 class Record:
@@ -82,7 +82,8 @@ class Request:
     identity: AttrDict
 ```
 
-- *Note*: the objects from type ```AttrDict``` are objects built by a dict where the key from dict is a attribute of object. For example:
+- *Note*: the objects from type ```AttrDict``` are objects built by a dict where the dict's key is an attribute of object. For example:
+
 
 ```python
 from serpens.api import AttrDict
@@ -94,10 +95,10 @@ obj.foo # bar
 ## Schema
 - The Schema is a base class for create new classes with follow features:
 > - Static type check
-> - Method for convert a object to dict
-> - Method for create a object from json
-> - Method for create object from dict
-> - Method for dumps a object to string
+> - Method to convert an object to dict
+> - Method to create an object from json
+> - Method to create an object from dict
+> - Method to dump an object to string
 
 ##### Create a schema
 
@@ -187,8 +188,7 @@ del writer
 
 ## Database
 
-TODO: 
-This utilities are useful for works with database.
+This utilities are useful for working with database.
 
 ##### Migrate databases
 
@@ -217,7 +217,7 @@ print(db.provider_name)
 
 ## DynamoDB Documents
 
-The serpens provide a base class (called *BaseDocument*) for work with tables from DynamoDB. 
+Serpens provides a base class (called *BaseDocument*) for working with tables from DynamoDB. 
 
 ##### Create a document mapping a DynamoDB table
 
@@ -241,7 +241,7 @@ person.save()
 
 ##### Get data from key
 
-- Obs: If the table not has item by key from search will be return ```None```.
+- Obs: If the search doesn't find an item by its key, the return is ```None```
 
 ```python
 person = PersonDocument.get_by_key({"id": "1"})
