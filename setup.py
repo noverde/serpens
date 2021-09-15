@@ -1,5 +1,4 @@
 from setuptools import setup, find_packages
-from serpens.settings import APPNAME, VERSION
 
 setup(
     name="serpens",
