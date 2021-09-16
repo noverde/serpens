@@ -1,6 +1,6 @@
 # serpens
 
-A set of Python utilities, recipes and snippets
+A set of Python utilities, recipes and snippets.
 
 - [SQS Utilities](#sqs-utilities)
 - [API Utilities](#api-utilities)
@@ -26,35 +26,26 @@ def message_processor(record: sqs.Record):
 
 ### Record
 
-- The function that will process each sqs message receive an instance of *sqs.Record* dataclass. This class has the follow structure:
+- The client function that will process the sqs messages will receive an instance of *sqs.Record* dataclass. This class has the follow structure:
 
 ```python
 class Record:
-    message_id: UUID
-    receipt_handle: str
-    body: Union[str, dict]
-    attributes: Attributes
-    message_attributes: dict
-    md5_of_message_attributes: str
-    md5_of_body: str
-    event_source: str
-    event_source_arn: EventSourceArn
-    aws_region: str
-
-class Attributes:
-    approximate_receive_count: int
-    sent_timestamp: datetime
-    sender_id: str
-    approximate_first_receive_timestamp: datetime
-
-class EventSourceArn:
-    raw: str
-    queue_name: str # is a property
+    data: Dict[Any, Any]
+    body: Union[dict, str]
+    message_attributes: Dict[Any, Any]
+    queue_name: str
+    sent_datetime: datetime
 ```
+##### Record attributes
+- **data**: Contain all data from SQS message. This attribute is assigned in each iteration in SQS message.
+- **body**: Return ```data["body"]``` converted to ```dict``` or ```str```.
+- **message_attributes**: Return the ```data["messageAttributes"]``` converted to ```dict```.
+- **queue_name**: Return the queue name extracted from ```data["eventSourceARN"]```.
+- **sent_datetime**: Return the ```data["attributes"]["SentTimestamp"]``` converted to ```datetime```.
 
 ## API Utilities
 
-- This utility is a wrapper for simplify the work with lambda handlers. The decorator ```api.handler``` will decorate a function that will process a lambda and this function will receive a ```request``` argument (from type api.Request).
+- This utility is a wrapper to simplify working with lambda handlers. The decorator ```api.handler``` will decorate a function that will process a lambda and this function will receive a ```request``` argument (from type api.Request).
 
 
 ```python
@@ -68,7 +59,7 @@ def lambda_handler(request: api.Request):
 
 #### *Request class*
 
-- The function that will process the lambda will receive a instance of *sqs.Request* dataclass. This class has the follow structure:
+- The function that will process the lambda will receive an instance of *sqs.Request* dataclass. This class has the follow structure:
 
 ```python
 from serpens.api import AttrDict
