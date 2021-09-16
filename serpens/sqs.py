@@ -1,14 +1,13 @@
+import json
 import boto3
 import logging
-import json
 
-from json.decoder import JSONDecodeError
-from uuid import UUID
 from typing import Union
-from dataclasses import dataclass
 from functools import wraps
-from datetime import datetime
 from typing import Dict, Any
+from datetime import datetime
+from dataclasses import dataclass
+from json.decoder import JSONDecodeError
 
 logger = logging.getLogger(__name__)
 
@@ -35,78 +34,30 @@ def handler(func):
     return wrapper
 
 
-class Attributes:
-    SenderId: str
-    data: Dict[Any, Any]
-
-    def __init__(self, data: Dict[Any, Any]):
-        self.data = data
-        self.SenderId = data.get("SenderId")
-
-    @property
-    def ApproximateReceiveCount(self) -> int:
-        approximate_receive_count = self.data.get("ApproximateReceiveCount")
-
-        if approximate_receive_count:
-            return int(approximate_receive_count)
-        return approximate_receive_count
-
-    @property
-    def SentTimestamp(self):
-        sent_timestamp = self.data["SentTimestamp"]
-
-        return datetime.fromtimestamp(float(sent_timestamp) / 1000.0)
-
-    @property
-    def ApproximateFirstReceiveTimestamp(self):
-        approximate_first_receive_timestamp = self.data["ApproximateFirstReceiveTimestamp"]
-
-        return datetime.fromtimestamp(float(approximate_first_receive_timestamp) / 1000.0)
-
-
 @dataclass
-class EventSourceArn:
-    raw: str
-
-    @property
-    def queue_name(self):
-        if self.raw:
-            return self.raw.split(":")[-1]
-
-
 class Record:
     data: Dict[Any, Any]
-    messageId: UUID
-    receiptHandle: str
-    attributes: Attributes
-    md5OfMessageAttributes: str
-    md5OfBody: str
-    eventSource: str
-    eventSourceARN: EventSourceArn
-    awsRegion: str
-
-    def __init__(self, data: Dict[Any, Any]):
-        self.data = data
-        raw_attrs = data.get("attributes", {})
-
-        attrs = Attributes(raw_attrs)
-        self.attributes = attrs
-
-        self.messageId = data.get("messageId")
-        self.receiptHandle = data.get("receiptHandle")
-        self.md5OfMessageAttributes = data.get("md5OfMessageAttributes")
-        self.md5OfBody = data.get("md5OfBody")
-        self.eventSource = data.get("eventSource")
-        self.eventSourceARN = EventSourceArn(data.get("eventSourceARN", ""))
-        self.awsRegion = data.get("awsRegion")
 
     @property
-    def messageAttributes(self):
+    def queue_name(self) -> str:
+        arn_raw = self.data.get("eventSourceARN", "")
+
+        if arn_raw:
+            return arn_raw.split(":")[-1]
+
+    @property
+    def messageAttributes(self) -> Dict[Any, Any]:
         message_attributes = self.data.get("messageAttributes")
 
         if message_attributes and isinstance(message_attributes, str):
             return json.loads(message_attributes)
         return message_attributes
+
+    @property
+    def sent_datetime(self) -> datetime:
+        return datetime.fromtimestamp(
+            float(self.data["attributes"]["SentTimestamp"]) / 1000.0,
+        )
 
     @property
     def body(self) -> Union[dict, str]:
