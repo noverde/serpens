@@ -56,13 +56,13 @@ class TestSQSHandler(unittest.TestCase):
 
         self.assertIsInstance(record, Record)
         self.assertIsInstance(record.body, dict)
-        self.assertIsInstance(record.attributes.sent_timestamp, datetime)
+        self.assertIsInstance(record.attributes.SentTimestamp, datetime)
         self.assertIsInstance(
-            record.attributes.approximate_first_receive_timestamp,
+            record.attributes.ApproximateFirstReceiveTimestamp,
             datetime,
         )
         self.assertEqual(record.body["foo"], "bar")
-        self.assertIsInstance(record.event_source_arn, EventSourceArn)
+        self.assertIsInstance(record.eventSourceARN, EventSourceArn)
 
 
 class TestSQSRecord(unittest.TestCase):
@@ -96,15 +96,15 @@ class TestSQSRecord(unittest.TestCase):
         data = self.event["Records"][0]
         record = Record(data)
 
-        self.assertEqual(record.message_id, data["messageId"])
-        self.assertEqual(record.receipt_handle, data["receiptHandle"])
+        self.assertEqual(record.messageId, data["messageId"])
+        self.assertEqual(record.receiptHandle, data["receiptHandle"])
         self.assertEqual(record.body, json.loads(data["body"]))
-        self.assertEqual(record.message_attributes, data["messageAttributes"])
-        self.assertEqual(record.md5_of_message_attributes, data["md5OfMessageAttributes"])
-        self.assertEqual(record.md5_of_body, data["md5OfBody"])
-        self.assertEqual(record.event_source, data["eventSource"])
-        self.assertEqual(record.event_source_arn.raw, data["eventSourceARN"])
-        self.assertEqual(record.aws_region, data["awsRegion"])
+        self.assertEqual(record.messageAttributes, data["messageAttributes"])
+        self.assertEqual(record.md5OfMessageAttributes, data["md5OfMessageAttributes"])
+        self.assertEqual(record.md5OfBody, data["md5OfBody"])
+        self.assertEqual(record.eventSource, data["eventSource"])
+        self.assertEqual(record.eventSourceARN.raw, data["eventSourceARN"])
+        self.assertEqual(record.awsRegion, data["awsRegion"])
 
     def test_create_record_with_body_as_str(self):
         self.event = {"Records": [{"body": "some value"}]}
@@ -125,7 +125,7 @@ class TestSQSRecord(unittest.TestCase):
         data = event["Records"][0]
         record = Record(data)
 
-        self.assertEqual(record.message_attributes, json.loads(data["messageAttributes"]))
+        self.assertEqual(record.messageAttributes, json.loads(data["messageAttributes"]))
 
 
 class TestSQSAttributes(unittest.TestCase):
@@ -143,11 +143,11 @@ class TestSQSAttributes(unittest.TestCase):
         m_datetime.fromtimestamp = datetime.utcfromtimestamp
 
         attributes = Attributes(self.raw_attrs)
-        self.assertEqual(attributes.approximate_receive_count, 1)
-        self.assertEqual(attributes.sent_timestamp, datetime(2021, 8, 2, 14, 56, 22, 931000))
-        self.assertEqual(attributes.sender_id, self.raw_attrs["SenderId"])
+        self.assertEqual(attributes.ApproximateReceiveCount, 1)
+        self.assertEqual(attributes.SentTimestamp, datetime(2021, 8, 2, 14, 56, 22, 931000))
+        self.assertEqual(attributes.SenderId, self.raw_attrs["SenderId"])
         self.assertEqual(
-            attributes.approximate_first_receive_timestamp,
+            attributes.ApproximateFirstReceiveTimestamp,
             datetime(2021, 8, 2, 14, 56, 22, 943000),
         )
 

@@ -36,27 +36,32 @@ def handler(func):
 
 
 class Attributes:
-    sender_id: str
+    SenderId: str
+    data: Dict[Any, Any]
 
     def __init__(self, data: Dict[Any, Any]):
-        self.sender_id = data.get("SenderId")
-        self._approximate_receive_count = data.get("ApproximateReceiveCount")
-        self._sent_timestamp = data.get("SentTimestamp")
-        self._approximate_first_receive_timestamp = data.get("ApproximateFirstReceiveTimestamp")
+        self.data = data
+        self.SenderId = data.get("SenderId")
 
     @property
-    def approximate_receive_count(self) -> int:
-        if self._approximate_receive_count:
-            return int(self._approximate_receive_count)
-        return self._approximate_receive_count
+    def ApproximateReceiveCount(self) -> int:
+        approximate_receive_count = self.data.get("ApproximateReceiveCount")
+
+        if approximate_receive_count:
+            return int(approximate_receive_count)
+        return approximate_receive_count
 
     @property
-    def sent_timestamp(self):
-        return datetime.fromtimestamp(float(self._sent_timestamp) / 1000.0)
+    def SentTimestamp(self):
+        sent_timestamp = self.data["SentTimestamp"]
+
+        return datetime.fromtimestamp(float(sent_timestamp) / 1000.0)
 
     @property
-    def approximate_first_receive_timestamp(self):
-        return datetime.fromtimestamp(float(self._approximate_first_receive_timestamp) / 1000.0)
+    def ApproximateFirstReceiveTimestamp(self):
+        approximate_first_receive_timestamp = self.data["ApproximateFirstReceiveTimestamp"]
+
+        return datetime.fromtimestamp(float(approximate_first_receive_timestamp) / 1000.0)
 
 
 @dataclass
@@ -71,14 +76,14 @@ class EventSourceArn:
 
 class Record:
     data: Dict[Any, Any]
-    message_id: UUID
-    receipt_handle: str
+    messageId: UUID
+    receiptHandle: str
     attributes: Attributes
-    md5_of_message_attributes: str
-    md5_of_body: str
-    event_source: str
-    event_source_arn: EventSourceArn
-    aws_region: str
+    md5OfMessageAttributes: str
+    md5OfBody: str
+    eventSource: str
+    eventSourceARN: EventSourceArn
+    awsRegion: str
 
     def __init__(self, data: Dict[Any, Any]):
         self.data = data
@@ -87,27 +92,28 @@ class Record:
         attrs = Attributes(raw_attrs)
         self.attributes = attrs
 
-        self.message_id = data.get("messageId")
-        self.receipt_handle = data.get("receiptHandle")
-        self.md5_of_message_attributes = data.get("md5OfMessageAttributes")
-        self.md5_of_body = data.get("md5OfBody")
-        self.event_source = data.get("eventSource")
-        self.event_source_arn = EventSourceArn(data.get("eventSourceARN"))
-        self.aws_region = data.get("awsRegion")
-
-        self._body = data.get("body")
-        self._message_attributes = data.get("messageAttributes")
+        self.messageId = data.get("messageId")
+        self.receiptHandle = data.get("receiptHandle")
+        self.md5OfMessageAttributes = data.get("md5OfMessageAttributes")
+        self.md5OfBody = data.get("md5OfBody")
+        self.eventSource = data.get("eventSource")
+        self.eventSourceARN = EventSourceArn(data.get("eventSourceARN", ""))
+        self.awsRegion = data.get("awsRegion")
 
     @property
-    def message_attributes(self):
-        if self._message_attributes and isinstance(self._message_attributes, str):
-            return json.loads(self._message_attributes)
-        return self._message_attributes
+    def messageAttributes(self):
+        message_attributes = self.data.get("messageAttributes")
+
+        if message_attributes and isinstance(message_attributes, str):
+            return json.loads(message_attributes)
+        return message_attributes
 
     @property
     def body(self) -> Union[dict, str]:
+        body_raw = self.data.get("body")
+
         try:
-            return json.loads(self._body)
+            return json.loads(body_raw)
 
         except JSONDecodeError:
-            return self._body
+            return body_raw
