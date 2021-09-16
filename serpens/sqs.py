@@ -46,12 +46,12 @@ class Record:
             return arn_raw.split(":")[-1]
 
     @property
-    def messageAttributes(self) -> Dict[Any, Any]:
-        message_attributes = self.data.get("messageAttributes")
+    def message_attributes(self) -> Dict[Any, Any]:
+        message_attributes_raw = self.data.get("messageAttributes")
 
-        if message_attributes and isinstance(message_attributes, str):
-            return json.loads(message_attributes)
-        return message_attributes
+        if message_attributes_raw and isinstance(message_attributes_raw, str):
+            return json.loads(message_attributes_raw)
+        return message_attributes_raw
 
     @property
     def sent_datetime(self) -> datetime:
