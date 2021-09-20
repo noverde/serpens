@@ -116,22 +116,15 @@ class TestSQSRecord(unittest.TestCase):
         self.assertEqual(record.data["attributes"], data["attributes"])
 
     def test_create_record_with_body_as_str(self):
-        self.event = {"Records": [{"body": "some value"}]}
+        self.event["Records"][0]["body"] = "some value"
         data = self.event["Records"][0]
         record = Record(data)
 
         self.assertEqual(record.body, data["body"])
 
     def test_create_record_with_message_attributes_as_str(self):
-        event = {
-            "Records": [
-                {
-                    "body": '{"foo":"bar"}',
-                    "messageAttributes": '{"key": "val"}',
-                }
-            ]
-        }
-        data = event["Records"][0]
+        self.event["Records"][0]["messageAttributes"] = '{"key": "val"}'
+        data = self.event["Records"][0]
         record = Record(data)
 
         self.assertEqual(record.message_attributes, json.loads(data["messageAttributes"]))

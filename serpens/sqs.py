@@ -6,7 +6,6 @@ from typing import Union
 from functools import wraps
 from typing import Dict, Any
 from datetime import datetime
-from dataclasses import dataclass
 from json.decoder import JSONDecodeError
 
 logger = logging.getLogger(__name__)
@@ -34,33 +33,33 @@ def handler(func):
     return wrapper
 
 
-@dataclass
 class Record:
-    data: Dict[Any, Any]
+    def __init__(self, data: Dict[Any, Any]):
+        self.data = data
+        self.queue_name = self._queue_name()
+        self.message_attributes = self._message_attributes()
+        self.sent_datetime = self._sent_datetime()
+        self.body = self._body()
 
-    @property
-    def queue_name(self) -> str:
+    def _queue_name(self) -> str:
         arn_raw = self.data.get("eventSourceARN", "")
 
         if arn_raw:
             return arn_raw.split(":")[-1]
 
-    @property
-    def message_attributes(self) -> Dict[Any, Any]:
+    def _message_attributes(self) -> Dict[Any, Any]:
         message_attributes_raw = self.data.get("messageAttributes")
 
         if message_attributes_raw and isinstance(message_attributes_raw, str):
             return json.loads(message_attributes_raw)
         return message_attributes_raw
 
-    @property
-    def sent_datetime(self) -> datetime:
+    def _sent_datetime(self) -> datetime:
         return datetime.fromtimestamp(
             float(self.data["attributes"]["SentTimestamp"]) / 1000.0,
         )
 
-    @property
-    def body(self) -> Union[dict, str]:
+    def _body(self) -> Union[dict, str]:
         body_raw = self.data.get("body")
 
         try:
