@@ -37,22 +37,13 @@ class Record:
     def __init__(self, data: Dict[Any, Any]):
         self.data = data
         self.queue_name = self._queue_name()
-        self.message_attributes = self._message_attributes()
+        self.message_attributes = data.get("messageAttributes")
         self.sent_datetime = self._sent_datetime()
         self.body = self._body()
 
     def _queue_name(self) -> str:
         arn_raw = self.data.get("eventSourceARN", "")
-
-        if arn_raw:
-            return arn_raw.split(":")[-1]
-
-    def _message_attributes(self) -> Dict[Any, Any]:
-        message_attributes_raw = self.data.get("messageAttributes")
-
-        if message_attributes_raw and isinstance(message_attributes_raw, str):
-            return json.loads(message_attributes_raw)
-        return message_attributes_raw
+        return arn_raw.split(":")[-1]
 
     def _sent_datetime(self) -> datetime:
         return datetime.fromtimestamp(
