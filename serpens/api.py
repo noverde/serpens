@@ -6,14 +6,6 @@ from serpens.schema import SchemaEncoder
 
 from serpens import initializers
 
-try:
-    from sentry_sdk import capture_exception
-
-    _SENTRY_SDK_MISSING_DEPS = False
-except ImportError:
-    _SENTRY_SDK_MISSING_DEPS = True
-
-
 initializers.setup()
 
 logger = logging.getLogger(__name__)
@@ -47,9 +39,7 @@ def handler(func):
 
             return response
         except Exception as ex:
-            logger.error(str(ex))
-            if not _SENTRY_SDK_MISSING_DEPS:
-                capture_exception(ex)
+            logger.exception(ex)
 
             return {
                 "statusCode": 500,
