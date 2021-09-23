@@ -1,12 +1,15 @@
 import json
-import boto3
 import logging
-
-from typing import Union
-from functools import wraps
-from typing import Dict, Any
 from datetime import datetime
+from functools import wraps
 from json.decoder import JSONDecodeError
+from typing import Any, Dict, Union
+
+import boto3
+
+from serpens import initializers
+
+initializers.setup()
 
 logger = logging.getLogger(__name__)
 
