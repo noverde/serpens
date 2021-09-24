@@ -1,2 +1,2 @@
 APPNAME = "serpens"
-VERSION = "1.13.1"
+VERSION = "1.14.1"
