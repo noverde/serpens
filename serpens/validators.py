@@ -3,7 +3,7 @@ from typing import List, Tuple
 
 
 def validate_cpf(cpf: str) -> bool:
-    if not cpf.isdigit() or len(cpf) != 11 or cpf == cpf[::-1]:
+    if not cpf.isdigit() or len(cpf) != 11 or len(set(cpf)) == 1:
         return False
 
     def _validate_digit(numbers: List[int], index: int) -> bool:
