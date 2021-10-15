@@ -8,6 +8,9 @@ from serpens import secrets
 def get(key, default=None):
     result = os.getenv(key, default)
 
+    if result is None:
+        return result
+
     if result.startswith("parameters://"):
         tmp = result.split("://")[1]
         return parameters.get(tmp)
