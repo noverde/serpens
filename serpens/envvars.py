@@ -8,6 +8,9 @@ from serpens import secrets
 def get(key, default=None):
     result = os.getenv(key, default)
 
+    if result is None:
+        raise NameError(f"Environment var '{key}' is not defined")
+
     if result.startswith("parameters://"):
         tmp = result.split("://")[1]
         return parameters.get(tmp)
