@@ -1,9 +1,9 @@
 import json
-import sqs
 import unittest
-
 from datetime import datetime
 from unittest.mock import patch
+
+import sqs
 from sqs import Record
 
 
@@ -58,6 +58,21 @@ class TestSQSHandler(unittest.TestCase):
         self.assertIsInstance(record.body, dict)
         self.assertIsInstance(record.sent_datetime, datetime)
         self.assertEqual(record.body["foo"], "bar")
+
+    def test_handler_exception(self):
+        record = None
+
+        @sqs.handler
+        def handler(message: Record):
+            nonlocal record
+            record = message
+
+        event = {"Records": [{"foo": "bar"}]}
+
+        with self.assertRaises(Exception) as ex:
+            handler(event, self.context)
+
+        self.assertIsInstance(ex.exception, KeyError)
 
 
 class TestSQSRecord(unittest.TestCase):

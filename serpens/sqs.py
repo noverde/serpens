@@ -30,8 +30,12 @@ def handler(func):
     def wrapper(event: dict, context: dict):
         logger.debug(f"Received data: {event}")
 
-        for data in event["Records"]:
-            func(Record(data))
+        try:
+            for data in event["Records"]:
+                func(Record(data))
+        except Exception as ex:
+            logger.exception(ex)
+            raise ex
 
     return wrapper
 
