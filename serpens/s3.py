@@ -28,3 +28,13 @@ def exists(bucket, key):
     response = client.list_objects_v2(Bucket=bucket, Prefix=key, MaxKeys=1)
 
     return "Contents" in response
+
+
+def count_files(bucket, key):
+    client = boto3.client("s3")
+    try:
+        response = client.list_objects_v2(Bucket=bucket, Prefix=key, MaxKeys=1)
+    except Exception:
+        return None
+
+    return response["KeyCount"]
