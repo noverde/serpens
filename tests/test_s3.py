@@ -60,7 +60,7 @@ class TestS3(unittest.TestCase):
         self.assertIsNone(response)
 
     @patch("s3.boto3")
-    def test_count_file_succeeded(self, m_boto3):
+    def test_list_objects_succeeded(self, m_boto3):
         aws_response = {
             "KeyCount": 1,
             "Contents": [
@@ -71,14 +71,14 @@ class TestS3(unittest.TestCase):
             ],
         }
         m_boto3.client.return_value.list_objects_v2.return_value = aws_response
-        response = s3.count_files("smartfidc-development", "cnab_finaxis/2021/05/10/")
+        response = s3.list_objects("smartfidc-development", "cnab_finaxis/2021/05/10/")
         self.assertTrue(response)
         m_boto3.client.return_value.list_objects_v2.assert_called_once()
-        self.assertEqual(1, response)
+        self.assertEqual(aws_response, response)
 
     @patch("s3.boto3")
-    def test_count_file_error(self, m_boto3):
+    def test_list_objects_error(self, m_boto3):
         m_boto3.client.return_value.list_objects_v2.side_effect = Exception()
 
-        response = s3.count_files("unreal-bucket", "2021/05/10/")
+        response = s3.list_objects("unreal-bucket", "2021/05/10/")
         self.assertIsNone(response)
