@@ -22,9 +22,14 @@ def get_file(bucket, key):
     return response.get("Body")
 
 
-def exists(bucket, key):
+def list_objects(bucket, key):
     client = boto3.client("s3")
 
-    response = client.list_objects_v2(Bucket=bucket, Prefix=key, MaxKeys=1)
+    try:
+        return client.list_objects_v2(Bucket=bucket, Prefix=key, MaxKeys=1)
+    except Exception:
+        return None
 
-    return "Contents" in response
+
+def exists(bucket, key):
+    return "Contents" in list_objects(bucket, key)
