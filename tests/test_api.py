@@ -1,8 +1,8 @@
 import json
 import unittest
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
-from copy import deepcopy
 
 import api
 
@@ -120,6 +120,10 @@ class TestApiHandler(unittest.TestCase):
             res = FooBar(foo=request.authorizer.foo, ping=request.body["ping"])
             return 200, res
 
+        @api.handler
+        def handler_with_response(request):
+            return api.Response(body=json.dumps(expected["body"]))
+
         response = handler(event, context)
 
         self.assertIn("headers", response)
@@ -166,6 +170,15 @@ class TestApiHandler(unittest.TestCase):
         self.assertDictEqual(body[0], expected_copy["body"])
 
         response = handler_with_dataclass(event, context)
+
+        self.assertIn("headers", response)
+        self.assertIn("statusCode", response)
+        self.assertIn("body", response)
+        self.assertEqual(response["headers"], expected["headers"])
+        self.assertEqual(response["statusCode"], expected["statusCode"])
+        self.assertDictEqual(json.loads(response["body"]), expected["body"])
+
+        response = handler_with_response(event, context)
 
         self.assertIn("headers", response)
         self.assertIn("statusCode", response)
