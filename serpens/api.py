@@ -2,9 +2,9 @@ import json
 import logging
 from dataclasses import asdict, is_dataclass
 from functools import wraps
-from serpens.schema import SchemaEncoder
 
 from serpens import initializers
+from serpens.schema import SchemaEncoder
 
 initializers.setup()
 
@@ -17,16 +17,16 @@ def handler(func):
         logger.debug(f"Received data: {event}")
 
         try:
-            response = {
-                "headers": {"Access-Control-Allow-Origin": "*"},
-                "statusCode": 200,
-                "body": "",
-            }
             request = Request(event)
             result = func(request)
 
+            if isinstance(result, Response):
+                return result.to_dict()
+
+            response = Response()
+
             if isinstance(result, tuple) and isinstance(result[0], int):
-                response["statusCode"] = result[0]
+                response.statusCode = result[0]
                 result = result[1]
 
             if is_dataclass(result):
@@ -35,9 +35,9 @@ def handler(func):
             if isinstance(result, (dict, list)):
                 result = json.dumps(result, cls=SchemaEncoder)
 
-            response["body"] = result
+            response.body = result
 
-            return response
+            return response.to_dict()
         except Exception as ex:
             logger.exception(ex)
 
@@ -112,3 +112,13 @@ class Request:
         context = self.data.get("requestContext") or {}
         identity = context.get("identity") or {}
         return AttrDict(identity)
+
+
+class Response:
+    def __init__(self, statusCode=200, body="", headers={"Access-Control-Allow-Origin": "*"}):
+        self.statusCode = statusCode
+        self.body = body
+        self.headers = headers
+
+    def to_dict(self):
+        return self.__dict__
