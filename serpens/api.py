@@ -115,10 +115,13 @@ class Request:
 
 
 class Response:
-    def __init__(self, statusCode=200, body="", headers={"Access-Control-Allow-Origin": "*"}):
+    def __init__(self, statusCode=200, body="", headers=None):
         self.statusCode = statusCode
         self.body = body
-        self.headers = headers
+        self.headers = {"Access-Control-Allow-Origin": "*"}
+
+        if headers and isinstance(headers, dict):
+            self.headers.update(headers)
 
     def to_dict(self):
         return self.__dict__

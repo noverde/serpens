@@ -67,6 +67,36 @@ class TestApiRequest(unittest.TestCase):
         self.assertEqual(instance.identity.sourceIp, "127.0.0.1")
 
 
+class TestApiResponse(unittest.TestCase):
+    def test_instance(self):
+        instance = api.Response(201, "Ok", {"Content-Type": "text/plain"})
+
+        self.assertIsInstance(instance, api.Response)
+        self.assertEqual(instance.statusCode, 201)
+        self.assertEqual(instance.body, "Ok")
+        self.assertDictEqual(
+            instance.headers, {"Content-Type": "text/plain", "Access-Control-Allow-Origin": "*"}
+        )
+
+    def test_to_dict(self):
+        expected = {"statusCode": 200, "body": "", "headers": {"Access-Control-Allow-Origin": "*"}}
+
+        instance = api.Response()
+
+        self.assertDictEqual(instance.to_dict(), expected)
+
+    def test_default_header(self):
+        first_response = api.Response()
+        first_response.headers["Foo"] = "Bar"
+
+        second_response = api.Response()
+
+        self.assertDictEqual(
+            first_response.headers, {"Access-Control-Allow-Origin": "*", "Foo": "Bar"}
+        )
+        self.assertDictEqual(second_response.headers, {"Access-Control-Allow-Origin": "*"})
+
+
 class TestApiHandler(unittest.TestCase):
     def test_handler(self):
         event = {
