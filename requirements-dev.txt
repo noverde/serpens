@@ -2,7 +2,7 @@ coverage==5.3
 black==20.8b1
 flake8==3.8.4
 
-boto3==1.16.31
+boto3==1.20.24
 pony==0.7.14
-moto==2.0.8
+moto==2.2.18
 sentry-sdk==0.19.4
