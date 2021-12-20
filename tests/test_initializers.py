@@ -9,10 +9,6 @@ class TestInitializers(unittest.TestCase):
         if os.getenv(envvar):
             del os.environ[envvar]
 
-    def test_init_logger_enabled(self):
-        os.environ["LOG_LEVEL"] = "INFO"
-        initializers.init_logger()
-
     def test_init_logger_disabled(self):
         self.unsetvar("LOG_LEVEL")
         initializers.init_logger()
