@@ -14,6 +14,15 @@ except ImportError:
     PONY_NOT_FOUND = True
 
 
+def get_connection(database_url: str):
+    urlparts = database_url.split("://")
+    provider = urlparts[0]
+    if provider == "sqlite":
+        database_url = urlparts[1]
+
+    return [provider, database_url]
+
+
 def migrate(database_url, migrations_path="./migrations"):
     if YOYO_NOT_FOUND:
         raise Exception("Couldn't run migrations because yoyo wasn't present in modules")
