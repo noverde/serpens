@@ -3,19 +3,31 @@ PROJECT_NAME  := $(shell grep -m1 'APPNAME' */settings.py | cut -f2 -d'"')
 PROJECT_PATH  := $(shell ls */settings.py | xargs dirname | head -n 1)
 
 # venv settings
-export PATH        := $(PWD)/.venv/bin:$(PATH)
-export PYTHONPATH  := $(PROJECT_PATH)
-export VIRTUAL_ENV := $(PWD)/.venv
+export PYTHONPATH := $(PROJECT_PATH):tests/fixtures
+export VIRTUALENV := $(PWD)/.venv
+export PATH       := $(VIRTUALENV)/bin:$(PATH)
+
+# unittest logging level
+test: export LOG_LEVEL=CRITICAL
+
+# fix make < 3.81 (macOS and old Linux distros)
+ifeq ($(filter undefine,$(value .FEATURES)),)
+SHELL = env PATH="$(PATH)" /bin/bash
+endif
+
+.PHONY: .env .venv
+
+all:
 
 .env:
-	echo 'PYTHONPATH="$(PROJECT_PATH)"' > .env
+	echo 'PYTHONPATH="$(PYTHONPATH)"' > .env
 
 .venv:
-	python3.8 -m venv $(VIRTUAL_ENV)
-	$(VIRTUAL_ENV)/bin/pip install --upgrade pip
+	python3.8 -m venv $(VIRTUALENV)
+	pip install --upgrade pip
 
 clean:
-	rm -rf dependencies .pytest_cache .coverage packaged.yaml
+	rm -rf dependencies .pytest_cache .coverage .aws-sam
 	find $(PROJECT_PATH) -name __pycache__ | xargs rm -rf
 	find tests -name __pycache__ | xargs rm -rf
 
@@ -40,5 +52,4 @@ test:
 	coverage run --source=$(PROJECT_PATH) --omit=dependencies -m unittest
 
 coverage: test .coverage
-	coverage report --fail-under=90 -m
-
+	coverage report -m --fail-under=90
