@@ -34,6 +34,14 @@ class TestApiAttrDict(unittest.TestCase):
         self.assertEqual(instance["pos"]["y"], 0)
         self.assertEqual(str(instance), str(data))
 
+    def test_get(self):
+        data = {"foo": "bar"}
+        instance = api.AttrDict(data)
+
+        result = instance.get("foo")
+
+        self.assertEqual(result, "bar")
+
 
 class TestApiRequest(unittest.TestCase):
     def test_instance(self):
@@ -65,6 +73,21 @@ class TestApiRequest(unittest.TestCase):
         self.assertEqual(instance.query.page, 2)
         self.assertEqual(instance.headers.Accept, "*/*")
         self.assertEqual(instance.identity.sourceIp, "127.0.0.1")
+
+    def test_invalid_json(self):
+        data = {
+            "requestContext": {
+                "authorizer": {"foo": "bar", "baz": 1},
+                "identity": {"sourceIp": "127.0.0.1"},
+            },
+            "pathParameters": {"one": 1, "two": 2},
+            "queryStringParameters": {"limit": 10, "page": 2},
+            "headers": {"Accept": "*/*"},
+        }
+
+        result = api.Request(data)
+
+        self.assertEqual(result.body, "")
 
 
 class TestApiResponse(unittest.TestCase):

@@ -17,6 +17,11 @@ class Level(Enum):
 
 
 @dataclass
+class NoneSchema(Schema):
+    foo: str = None
+
+
+@dataclass
 class PersonSchema(Schema):
     name: str
     age: int
@@ -33,24 +38,30 @@ class EmployeeSchema(Schema):
     registered: date
 
 
-class TestSchema(unittest.TestCase):
-    def test_missing_required(self):
-        expected = (("__init__() missing 2 required positional " + "arguments: 'name' and 'age'"),)
+@dataclass
+class SimpleSchema(Schema):
+    buzz: str = None
 
-        with self.assertRaises(TypeError) as error:
-            PersonSchema()
 
-        self.assertEqual(error.exception.args, expected)
+class TestSchemaLoad(unittest.TestCase):
+    def test_load(self):
+        data = {
+            "person": {"name": "John Doe", "age": 30, "hobby": ["walk"]},
+            "uid": "dc675e20-6e8b-4b05-a8ce-4459560526c3",
+            "office": "main",
+            "salary": 6500.1,
+            "level": "middle",
+            "registered": "2021-01-01",
+        }
+        instance = EmployeeSchema.load(data)
 
-    def test_invalid_type(self):
-        expected = ("'age' must be of type int",)
+        self.assertIsInstance(instance, EmployeeSchema)
+        self.assertIsInstance(instance.person, PersonSchema)
+        self.assertIsInstance(instance.salary, Decimal)
+        self.assertIsInstance(instance.level, Enum)
+        self.assertIsInstance(instance.registered, date)
 
-        with self.assertRaises(TypeError) as error:
-            PersonSchema("foo", "bar")
-
-        self.assertEqual(error.exception.args, expected)
-
-    def test_ignore_unknown(self):
+    def test_load_ignore_unknown(self):
         data = {
             "person": {"name": "John Doe", "age": 30, "hobby": ["walk"]},
             "uid": "dc675e20-6e8b-4b05-a8ce-4459560526c3",
@@ -69,22 +80,14 @@ class TestSchema(unittest.TestCase):
         self.assertIsInstance(instance.level, Enum)
         self.assertIsInstance(instance.registered, date)
 
-    def test_load(self):
+    def test_load_without_field(self):
         data = {
-            "person": {"name": "John Doe", "age": 30, "hobby": ["walk"]},
-            "uid": "dc675e20-6e8b-4b05-a8ce-4459560526c3",
-            "office": "main",
-            "salary": 6500.1,
-            "level": "middle",
-            "registered": "2021-01-01",
+            "foo": "bar",
         }
-        instance = EmployeeSchema.load(data)
+        instance = SimpleSchema.load(data)
 
-        self.assertIsInstance(instance, EmployeeSchema)
-        self.assertIsInstance(instance.person, PersonSchema)
-        self.assertIsInstance(instance.salary, Decimal)
-        self.assertIsInstance(instance.level, Enum)
-        self.assertIsInstance(instance.registered, date)
+        self.assertIsInstance(instance, SimpleSchema)
+        self.assertEqual(instance.buzz, None)
 
     def test_load_missing_required(self):
         expected = ("'name' is a required field", "'age' is a required field")
@@ -134,6 +137,8 @@ class TestSchema(unittest.TestCase):
         self.assertIsInstance(instance.level, Enum)
         self.assertIsInstance(instance.registered, date)
 
+
+class TestSchemaDump(unittest.TestCase):
     def test_dump(self):
         expected = {
             "person": {"name": "John Doe", "age": 30, "hobby": ["walk"]},
@@ -179,3 +184,26 @@ class TestSchema(unittest.TestCase):
 
         self.assertIsInstance(string, str)
         self.assertDictEqual(json.loads(string), expected)
+
+
+class TestSchema(unittest.TestCase):
+    def test_none_attr(self):
+        instance = NoneSchema()
+
+        self.assertIsNone(instance.foo)
+
+    def test_missing_required(self):
+        expected = (("__init__() missing 2 required positional " + "arguments: 'name' and 'age'"),)
+
+        with self.assertRaises(TypeError) as error:
+            PersonSchema()
+
+        self.assertEqual(error.exception.args, expected)
+
+    def test_invalid_type(self):
+        expected = ("'age' must be of type int",)
+
+        with self.assertRaises(TypeError) as error:
+            PersonSchema("foo", "bar")
+
+        self.assertEqual(error.exception.args, expected)

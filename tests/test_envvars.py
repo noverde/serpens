@@ -1,12 +1,24 @@
 import os
 import unittest
-from unittest.mock import patch
 from pathlib import Path
+from unittest.mock import patch
 
 import envvars
 
 
 class TestEnvVars(unittest.TestCase):
+    path_bin = "/tmp/test.bin"
+
+    @classmethod
+    def setUpClass(cls):
+        stream = open(cls.path_bin, "wb")
+        stream.write(b"\x80")
+        stream.close()
+
+    @classmethod
+    def tearDownClass(cls):
+        os.remove(cls.path_bin)
+
     def unsetvar(self, envvar: str):
         if os.getenv(envvar):
             del os.environ[envvar]
@@ -27,6 +39,10 @@ class TestEnvVars(unittest.TestCase):
         self.unsetvar("FOO")
         envvars.load_dotenv("invalid_file.txt")
         self.assertIsNone(os.getenv("FOO"))
+
+    def test_load_invalid_file(self):
+        file = Path(self.path_bin)
+        envvars.load_dotenv(file)
 
     def test_get(self):
         os.environ["FOO"] = "BAR"
