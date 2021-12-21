@@ -48,9 +48,13 @@ class TestEnvVars(unittest.TestCase):
         os.environ["FOO"] = "BAR"
         self.assertEqual(envvars.get("FOO"), "BAR")
 
-    def test_get_unexisting_envvar(self):
-        with self.assertRaises(NameError):
-            envvars.get("UNEXISTING_ENVVAR")
+    def test_get_default(self):
+        result = envvars.get("NOVAR", "MyValue")
+        self.assertEqual(result, "MyValue")
+
+    def test_get_default_none(self):
+        result = envvars.get("NOVAR")
+        self.assertIsNone(result)
 
     @patch("envvars.parameters.get")
     def test_get_parameter(self, mock_params):

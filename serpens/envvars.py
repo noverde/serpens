@@ -9,7 +9,7 @@ def get(key, default=None):
     result = os.getenv(key, default)
 
     if result is None:
-        raise NameError(f"Environment var '{key}' is not defined")
+        return None
 
     if result.startswith("parameters://"):
         tmp = result.split("://")[1]
