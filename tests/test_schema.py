@@ -217,7 +217,7 @@ class TestSchemaDump(unittest.TestCase):
         self.assertIsInstance(string, str)
         self.assertDictEqual(json.loads(string), expected)
 
-    def test_dumps_encoder_default(self):
+    def test_dumps_not_serializable(self):
         expected = (("Object of type TypeVar is not JSON serializable"),)
         data = {
             "A": TypeVar("A"),
