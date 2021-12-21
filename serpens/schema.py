@@ -38,7 +38,7 @@ class Schema:
 
         for field in fields(cls):
             if field.name not in data or data[field.name] is None:
-                continue
+                continue  # pragma: no cover
             # cast special types
             if field.type in (date, datetime, time):
                 if isinstance(data[field.name], str) and "Z" in data[field.name]:
