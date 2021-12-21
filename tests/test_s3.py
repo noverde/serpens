@@ -9,7 +9,7 @@ class TestS3(unittest.TestCase):
     def test_upload_document_succeeded(self, m_boto3):
         aws_response = {"ResponseMetadata": {"HTTPStatusCode": 200}}
         m_boto3.client.return_value.put_object.return_value = aws_response
-        response = s3.upload_file(b"foo", "bar", "baz", "plain/text")
+        response = s3.upload_object(b"foo", "bar", "baz", "plain/text")
 
         self.assertTrue(response)
 
@@ -17,7 +17,7 @@ class TestS3(unittest.TestCase):
     def test_upload_document_failed(self, m_boto3):
         aws_response = {"ResponseMetadata": {"HTTPStatusCode": 500}}
         m_boto3.client.return_value.put_object.return_value = aws_response
-        response = s3.upload_file(b"foo", "bar", "baz", "plain/text")
+        response = s3.upload_object(b"foo", "bar", "baz", "plain/text")
 
         self.assertFalse(response)
 
@@ -28,7 +28,7 @@ class TestS3(unittest.TestCase):
 
         aws_response = {"Body": file_body}
         m_boto3.client.return_value.get_object.return_value = aws_response
-        response = s3.get_file("bar", "baz")
+        response = s3.get_object("bar", "baz")
 
         self.assertIsNotNone(response)
         m_boto3.client.return_value.get_object.assert_called_once()
@@ -56,7 +56,7 @@ class TestS3(unittest.TestCase):
     def test_get_document_exception(self, m_boto3):
         m_boto3.client.return_value.get_object.side_effect = Exception()
 
-        response = s3.get_file("bar", "baz")
+        response = s3.get_object("bar", "baz")
         self.assertIsNone(response)
 
     @patch("s3.boto3")
