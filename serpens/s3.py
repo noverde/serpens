@@ -1,7 +1,7 @@
 import boto3
 
 
-def upload_file(data, bucket, key, content_type, acl="private"):
+def upload_object(data, bucket, key, content_type, acl="private"):
     client = boto3.client("s3")
 
     response = client.put_object(
@@ -11,7 +11,7 @@ def upload_file(data, bucket, key, content_type, acl="private"):
     return response["ResponseMetadata"]["HTTPStatusCode"] == 200
 
 
-def get_file(bucket, key):
+def get_object(bucket, key):
     client = boto3.client("s3")
 
     try:
