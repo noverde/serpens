@@ -25,7 +25,8 @@ class TestMigrations(unittest.TestCase):
     def test_migrate(self):
         migrations.migrate(f"sqlite:///{self.database_file}", self.migrations_path)
 
-        db = database.setup(f"sqlite://{self.database_file}")
+        db = database.Database(f"sqlite://{self.database_file}")
+
         result = db.get("SELECT * FROM test WHERE id = 1")
 
         self.assertIsNotNone(result)
@@ -39,7 +40,7 @@ class TestMigrations(unittest.TestCase):
 
         migrations.migrate_handler(None, None)
 
-        db = database.setup(f"sqlite://{self.database_file}")
+        db = database.Database(f"sqlite://{self.database_file}")
         result = db.get("SELECT * FROM test WHERE id = 1")
 
         self.assertIsNotNone(result)

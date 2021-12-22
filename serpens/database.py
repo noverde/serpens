@@ -1,26 +1,42 @@
-try:
-    from pony.orm import Database
+import os
 
-    PONY_NOT_FOUND = False
-except ImportError:
-    PONY_NOT_FOUND = True
+from pony.orm import Database as PonyDatabase
 
 
-def get_connection(database_url: str):
-    urlparts = database_url.split("://")
-    provider = urlparts[0]
-    if provider == "sqlite":
-        database_url = urlparts[1]
+class Database(PonyDatabase):
+    @staticmethod
+    def _parse_uri(uri: str):
+        if not uri:
+            raise ValueError("uri must be not empty")
 
-    return [provider, database_url]
+        try:
+            urlparts = uri.split("://")
+            if len(urlparts) < 2:
+                raise
 
+            provider = urlparts[0]
+            if provider == "sqlite":
+                uri = urlparts[1]
+        except Exception:
+            raise ValueError("uri must be a valid database URI")
 
-def setup(database_url: str) -> Database:
-    if PONY_NOT_FOUND:
-        raise Exception("Couldn't setup database because PonyORM wasn't present in modules")
+        return provider, uri
 
-    tmp = database_url.split("://")
-    drive = tmp[0]
-    if drive == "sqlite":
-        database_url = tmp[1]
-    return Database(drive, database_url)
+    def __init__(self, uri=None):
+        if uri is None:
+            super().__init__()
+        else:
+            provider, uri = Database._parse_uri(uri)
+            super().__init__(provider, uri)
+
+    def bind(self, uri=None, mapping=False, check_tables=False):
+        if uri is None:
+            uri = os.environ.get("DATABASE_URL")
+
+        provider, uri = Database._parse_uri(uri)
+        result = super().bind(provider, uri)
+
+        if mapping:
+            self.generate_mapping(check_tables=check_tables)
+
+        return result
