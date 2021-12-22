@@ -1,1 +1,5 @@
-CREATE TABLE foo (id INT, bar VARCHAR(20), PRIMARY KEY (id));
+CREATE TABLE "test" (
+    "id" INT,
+    "name" VARCHAR(20),
+    PRIMARY KEY (id)
+);

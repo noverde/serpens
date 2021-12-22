@@ -6,3 +6,4 @@ boto3==1.20.24
 pony==0.7.14
 moto==2.2.18
 sentry-sdk==0.19.4
+yoyo-migrations==7.3.2
