@@ -1,5 +1,6 @@
 import unittest
-from unittest.mock import patch
+
+from unittest.mock import Mock, patch
 
 from serpens.testgres import (
     docker_init,
@@ -64,15 +65,15 @@ class TestTestgres(unittest.TestCase):
         mdb.bind.assert_called_with(expected_uri, mapping=True)
         self.assertEqual(mdb.create_tables.call_count, 1)
 
-    # @patch("serpens.testgres.docker_init", Mock())
-    # @patch("serpens.testgres.database")
-    # def test_start_test_run_exception(self, mdb):
-    #     mdb.bind.side_effect = Exception()
+    @patch("serpens.testgres.docker_init", Mock())
+    @patch("serpens.testgres.print")
+    @patch("serpens.testgres.database")
+    def test_start_test_run_exception(self, mdb, mpr):
+        mdb.bind.side_effect = Exception()
 
-    #     start_test_run(None)
+        start_test_run(None)
 
-    #     mdb.bind.assert_called_with(expected_uri, mapping=True)
-    #     self.assertEqual(mdb.create_tables.call_count, 1)
+        self.assertEqual(mpr.call_count, 1)
 
     @patch("serpens.testgres.default_stop_test_run")
     def test_stop_test_run(self, mrun):
