@@ -1,16 +1,17 @@
 import unittest
 
+from unittest.mock import Mock, patch
+
 from serpens.testgres import (
+    docker_init,
+    docker_pg_isready,
+    docker_port,
     docker_shell,
     docker_start,
     docker_stop,
-    docker_port,
-    docker_pg_isready,
-    docker_init,
+    start_test_run,
     stop_test_run,
 )
-
-from unittest.mock import patch
 
 
 class TestTestgres(unittest.TestCase):
@@ -53,6 +54,26 @@ class TestTestgres(unittest.TestCase):
         mpgs.side_effect = [1, 0]
         result = docker_init()
         self.assertEqual(result, "postgres://testgres:testgres@localhost:65432/testgres")
+
+    @patch("serpens.testgres.docker_init")
+    @patch("serpens.testgres.database")
+    def test_start_test_run(self, mdb, mdi):
+        expected_uri = "postgres://testgres:testgres@localhost:65432/testgres"
+        mdi.return_value = expected_uri
+        start_test_run(None)
+
+        mdb.bind.assert_called_with(expected_uri, mapping=True)
+        self.assertEqual(mdb.create_tables.call_count, 1)
+
+    @patch("serpens.testgres.docker_init", Mock())
+    @patch("serpens.testgres.print")
+    @patch("serpens.testgres.database")
+    def test_start_test_run_exception(self, mdb, mpr):
+        mdb.bind.side_effect = Exception()
+
+        start_test_run(None)
+
+        self.assertEqual(mpr.call_count, 1)
 
     @patch("serpens.testgres.default_stop_test_run")
     def test_stop_test_run(self, mrun):
