@@ -52,8 +52,7 @@ def docker_init():
 
 def start_test_run(self):
     try:
-        if not os.getenv("GITHUB_ACTIONS", False):
-            uri = docker_init()
+        uri = docker_init()
 
         database.bind(uri, mapping=True)
         database.create_tables()
