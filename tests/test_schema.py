@@ -1,9 +1,10 @@
 import json
 import unittest
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
+from typing import TypeVar
 from uuid import UUID
 
 from schema import Schema
@@ -40,7 +41,13 @@ class EmployeeSchema(Schema):
 
 @dataclass
 class SimpleSchema(Schema):
+    created_at: datetime = None
     buzz: str = None
+
+
+@dataclass
+class TypeSchema(Schema):
+    A: TypeVar
 
 
 class TestSchemaLoad(unittest.TestCase):
@@ -80,6 +87,18 @@ class TestSchemaLoad(unittest.TestCase):
         self.assertIsInstance(instance.level, Enum)
         self.assertIsInstance(instance.registered, date)
 
+    def test_load_date_iso_format(self):
+        data = {
+            "created_at": "2014-09-12T19:34:29Z",
+            "buzz": "foo",
+        }
+
+        instance = SimpleSchema.load(data)
+
+        self.assertIsInstance(instance, SimpleSchema)
+        self.assertIsInstance(instance.created_at, datetime)
+        self.assertIsInstance(instance.buzz, str)
+
     def test_load_without_field(self):
         data = {
             "foo": "bar",
@@ -88,6 +107,19 @@ class TestSchemaLoad(unittest.TestCase):
 
         self.assertIsInstance(instance, SimpleSchema)
         self.assertEqual(instance.buzz, None)
+
+    def test_load_invalid_type(self):
+        expected = ("'name' must be of type str",)
+        data = {
+            "name": 123,
+            "age": 30,
+            "hobby": ["walk"],
+        }
+
+        with self.assertRaises(TypeError) as error:
+            PersonSchema.load(data)
+
+        self.assertEqual(error.exception.args, expected)
 
     def test_load_missing_required(self):
         expected = ("'name' is a required field", "'age' is a required field")
@@ -184,6 +216,18 @@ class TestSchemaDump(unittest.TestCase):
 
         self.assertIsInstance(string, str)
         self.assertDictEqual(json.loads(string), expected)
+
+    def test_dumps_not_serializable(self):
+        expected = (("Object of type TypeVar is not JSON serializable"),)
+        data = {
+            "A": TypeVar("A"),
+        }
+
+        instance = TypeSchema.load(data)
+        with self.assertRaises(TypeError) as error:
+            TypeSchema.dumps(instance)
+
+        self.assertEqual(error.exception.args, expected)
 
 
 class TestSchema(unittest.TestCase):

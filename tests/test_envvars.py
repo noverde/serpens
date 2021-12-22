@@ -42,7 +42,9 @@ class TestEnvVars(unittest.TestCase):
 
     def test_load_invalid_file(self):
         file = Path(self.path_bin)
-        envvars.load_dotenv(file)
+        result = envvars.load_dotenv(file)
+
+        self.assertIsNone(result)
 
     def test_get(self):
         os.environ["FOO"] = "BAR"
