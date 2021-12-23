@@ -1,7 +1,7 @@
 import os
 import unittest
 
-import initializers
+from serpens import initializers, log, sentry
 
 
 class TestInitializers(unittest.TestCase):
@@ -11,15 +11,15 @@ class TestInitializers(unittest.TestCase):
 
     def test_init_logger_disabled(self):
         self.unsetvar("LOG_LEVEL")
-        initializers.init_logger()
+        log.setup()
 
     def test_init_sentry_enabled(self):
         os.environ["SENTRY_DSN"] = ""
-        initializers.init_logger()
+        sentry.setup()
 
     def test_init_sentry_disabled(self):
         self.unsetvar("SENTRY_DSN")
-        initializers.init_logger()
+        sentry.setup()
 
     def test_setup(self):
         initializers.setup()
