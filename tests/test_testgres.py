@@ -1,8 +1,10 @@
+import os
 import unittest
 
 from unittest.mock import Mock, patch
 
 from serpens.testgres import (
+    setup,
     docker_init,
     docker_pg_isready,
     docker_port,
@@ -86,3 +88,33 @@ class TestTestgres(unittest.TestCase):
         mrun.return_value = None
         result = stop_test_run(None)
         self.assertIsNone(result)
+
+    @patch("serpens.testgres.unittest")
+    def test_setup_without_database_url(self, munit):
+        db_url = None
+
+        if "DATABASE_URL" in os.environ:
+            db_url = os.environ.pop("DATABASE_URL")
+
+        setup("")
+
+        self.assertEqual(munit.result.TestResult.startTestRun, start_test_run)
+        self.assertEqual(munit.result.TestResult.stopTestRun, stop_test_run)
+
+        if db_url:
+            os.environ["DATABASE_URL"] = db_url
+
+    def test_setup_with_database_url(self):
+        db_url = os.environ.get("DATABASE_URL")
+
+        if not db_url:
+            os.environ["DATABASE_URL"] = "postgres://testgres:testgres@localhost:55432/testgres"
+
+        mdb = Mock()
+
+        setup(mdb)
+
+        self.assertEqual(mdb.create_tables.call_count, 1)
+
+        if db_url:
+            os.environ["DATABASE_URL"] = db_url
