@@ -40,6 +40,12 @@ class TestTestgres(unittest.TestCase):
         self.assertEqual(result, "65432")
 
     @patch("subprocess.run")
+    def test_docker_port_multiline(self, mrun):
+        mrun.return_value.stdout = "foo:65432\nbar:23456"
+        result = docker_port()
+        self.assertEqual(result, "65432")
+
+    @patch("subprocess.run")
     def test_docker_pg_isready(self, mrun):
         mrun.return_value.returncode = 2
         result = docker_pg_isready()

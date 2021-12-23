@@ -32,8 +32,9 @@ def docker_pg_isready():
 
 
 def docker_port():
-    result = docker_shell("docker port testgres")
-    return result.stdout.split(":")[1]
+    stdout = docker_shell("docker port testgres").stdout
+    result = stdout.split("\n")[0]
+    return result.split(":")[1]
 
 
 def docker_init():
