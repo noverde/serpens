@@ -11,8 +11,11 @@ default_stop_test_run = unittest.result.TestResult.stopTestRun
 database = None
 
 
-def docker_shell(cmd):
-    return subprocess.run(shlex.split(cmd), capture_output=True, encoding="utf-8")
+def docker_shell(cmd, output=True):
+    result = subprocess.run(shlex.split(cmd), capture_output=True, encoding="utf-8")
+    if output and not result.returncode:
+        print(result.stderr)
+    return result
 
 
 def docker_start():
@@ -24,7 +27,7 @@ def docker_start():
 
 
 def docker_stop():
-    return docker_shell("docker stop testgres")
+    return docker_shell("docker stop testgres", output=False)
 
 
 def docker_pg_isready():
