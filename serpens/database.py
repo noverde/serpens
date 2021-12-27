@@ -1,6 +1,6 @@
 from pony.orm import Database as PonyDatabase
 
-import envvars
+from serpens import envvars
 
 
 class Database(PonyDatabase):
