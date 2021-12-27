@@ -1,6 +1,8 @@
 import os
 import unittest
 
+from unittest.mock import patch
+
 from pony.orm.core import db_session, PrimaryKey, Required
 
 from serpens.database import Database
@@ -76,6 +78,19 @@ class TestDatabase(unittest.TestCase):
 
         os.environ["DATABASE_URL"] = "sqlite://:memory:"
         db.bind()
+        result = db.get("SELECT 1")
+        self.assertEqual(result, 1)
+
+    @db_session
+    @patch("envvars.parameters.get")
+    def test_database_default_bind_from_parameters(self, mock_params):
+        mock_params.return_value = "sqlite://:memory:"
+
+        db = Database()
+        self.assertIsInstance(db, Database)
+
+        os.environ["DATABASE_URL"] = "parameters:///my-project/database_url"
+        db.bind(mapping=True)
         result = db.get("SELECT 1")
         self.assertEqual(result, 1)
 

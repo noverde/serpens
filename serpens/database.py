@@ -1,6 +1,6 @@
-import os
-
 from pony.orm import Database as PonyDatabase
+
+import envvars
 
 
 class Database(PonyDatabase):
@@ -31,7 +31,7 @@ class Database(PonyDatabase):
 
     def bind(self, uri=None, mapping=False, check_tables=False):
         if uri is None:
-            uri = os.environ.get("DATABASE_URL")
+            uri = envvars.get("DATABASE_URL")
 
         provider, uri = Database._parse_uri(uri)
         result = super().bind(provider, uri)
