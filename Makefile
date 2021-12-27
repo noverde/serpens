@@ -1,6 +1,6 @@
 # project settings
-PROJECT_NAME  := $(shell grep -m1 'APPNAME' */settings.py | cut -f2 -d'"')
-PROJECT_PATH  := $(shell ls */settings.py | xargs dirname | head -n 1)
+PROJECT_NAME  := $(shell grep "name=" setup.py | cut -f2 -d'"')
+PROJECT_PATH  := $(PROJECT_NAME)
 
 # venv settings
 export PYTHONPATH := $(PROJECT_PATH):tests/fixtures
