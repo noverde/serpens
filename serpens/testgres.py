@@ -13,7 +13,7 @@ database = None
 
 def docker_shell(cmd, output=True):
     result = subprocess.run(shlex.split(cmd), capture_output=True, encoding="utf-8")
-    if output and not result.returncode:
+    if output and result.stderr and not result.returncode:
         print(result.stderr)
     return result
 
