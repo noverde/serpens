@@ -14,7 +14,7 @@ def migrate(uri, migrations_path):
 
 def migrate_handler(event, context):
     uri = envvars.get("DATABASE_URL")
-    path = envvars.get("DATABASE_MIGRATIONS_PATH", "./migrations")
+    path = envvars.get("DATABASE_MIGRATIONS_PATH", "./")
 
     logging.info("Migrating database...")
     migrate(uri, path)
