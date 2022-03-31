@@ -1,9 +1,21 @@
-import os
 import logging
+import os
 
 import sentry_sdk
 
 logger = logging.getLogger(__name__)
+
+
+def before_send(event, hint):
+    if "exc_info" in hint:
+        exc_type, exc_value, tb = hint["exc_info"]
+
+        if isinstance(exc_value, (IgnoredException)):
+            return None
+
+        return event
+
+    return None
 
 
 def setup() -> None:
@@ -22,5 +34,14 @@ def setup() -> None:
         environment=environment,
         release=release,
         debug=os.getenv("DEBUG", "False").lower() in ("yes", "true", "1"),
+        before_send=before_send,
     )
     logger.info("Sentry's SDK initialized")
+
+
+class IgnoredException(Exception):
+    """
+    Base class for exceptions that shouldn't be sent to Sentry
+    """
+
+    pass
