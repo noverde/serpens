@@ -19,7 +19,8 @@ class TestSentry(unittest.TestCase):
 
         response = sentry.before_send(event, hint)
 
-        self.assertIsNone(response)
+        self.assertIsNotNone(response)
+        self.assertEqual(response, event)
 
     def test_before_send_ignore_exception(self):
         event = sentry.IgnoredException("foo")

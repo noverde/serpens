@@ -7,15 +7,10 @@ logger = logging.getLogger(__name__)
 
 
 def before_send(event, hint):
-    if "exc_info" in hint:
-        exc_type, exc_value, tb = hint["exc_info"]
+    if "exc_info" in hint and isinstance(hint["exc_info"][1], (IgnoredException)):
+        return None
 
-        if isinstance(exc_value, (IgnoredException)):
-            return None
-
-        return event
-
-    return None
+    return event
 
 
 def setup() -> None:
