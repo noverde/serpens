@@ -22,9 +22,9 @@ class TestSentry(unittest.TestCase):
         self.assertIsNotNone(response)
         self.assertEqual(response, event)
 
-    def test_before_send_ignore_exception(self):
-        event = sentry.IgnoredException("foo")
-        hint = {"exc_info": ["exception", sentry.IgnoredException("foo"), "bar"]}
+    def test_before_send_filtering_event(self):
+        event = sentry.FilteredEvent("foo")
+        hint = {"exc_info": ["exception", sentry.FilteredEvent("foo"), "bar"]}
 
         response = sentry.before_send(event, hint)
 

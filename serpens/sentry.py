@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def before_send(event, hint):
-    if "exc_info" in hint and isinstance(hint["exc_info"][1], IgnoredException):
+    if "exc_info" in hint and isinstance(hint["exc_info"][1], FilteredEvent):
         return None
 
     return event
@@ -34,7 +34,7 @@ def setup() -> None:
     logger.info("Sentry's SDK initialized")
 
 
-class IgnoredException(Exception):
+class FilteredEvent(Exception):
     """
     Base class for exceptions that shouldn't be sent to Sentry
     """
