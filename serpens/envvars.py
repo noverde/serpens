@@ -1,8 +1,7 @@
 import os
 import shlex
 
-from serpens import parameters
-from serpens import secrets
+from serpens import parameters, secrets_manager
 
 
 def get(key, default=None):
@@ -19,7 +18,7 @@ def get(key, default=None):
         tmp = result.split("://")[1].split("?")
         secret_name = tmp[0]
         secret_key = tmp[1] if len(tmp) > 1 else None
-        return secrets.get(secret_name, secret_key)
+        return secrets_manager.get(secret_name, secret_key)
 
     return result
 
