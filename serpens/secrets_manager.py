@@ -5,7 +5,7 @@ import boto3
 from serpens.cache import cached
 
 
-@cached("secrets", 900)
+@cached("secrets_manager", 900)
 def get(secret_id, keyname=None):
     client = boto3.client("secretsmanager")
 
