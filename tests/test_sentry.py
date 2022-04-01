@@ -24,7 +24,7 @@ class TestSentry(unittest.TestCase):
 
     def test_before_send_filtering_event(self):
         event = sentry.FilteredEvent("foo")
-        hint = {"exc_info": ["exception", sentry.FilteredEvent("foo"), "bar"]}
+        hint = {"exc_info": ["exception", event, "bar"]}
 
         response = sentry.before_send(event, hint)
 
