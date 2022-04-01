@@ -65,7 +65,7 @@ class TestEnvVars(unittest.TestCase):
         os.environ["FOO"] = "parameters:///stored_parameter"
         self.assertEqual(envvars.get("FOO"), "stored_value")
 
-    @patch("envvars.secrets.get")
+    @patch("envvars.secrets_manager.get")
     def test_get_secrets(self, mock_secrets):
         mock_secrets.return_value = "stored_value"
 
