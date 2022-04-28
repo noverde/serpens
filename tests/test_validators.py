@@ -59,7 +59,7 @@ class TestValidateEmail(unittest.TestCase):
 
 class TestValidateMobileNumber(unittest.TestCase):
     def test_valid_mobile_numbers(self):
-        numbers = ("41987734440", "14988235412", "11987564321", "+5588997370908")
+        numbers = ("41987734440", "14988235412", "11987564321", "+5551987716993")
         result = all(map(validators.validate_mobile_number, numbers))
 
         self.assertTrue(result)
