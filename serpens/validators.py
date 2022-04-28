@@ -94,8 +94,9 @@ def validate_pix(value: str) -> bool:
 
     try:
         UUID(value)
-        return True
     except ValueError:
         pass
+    else:
+        return True
 
     return False
