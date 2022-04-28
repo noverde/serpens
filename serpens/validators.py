@@ -1,5 +1,6 @@
 import re
 from typing import List, Tuple
+from uuid import UUID
 
 
 def validate_cpf(cpf: str) -> bool:
@@ -76,3 +77,25 @@ def validate_email(email: str) -> bool:
 def validate_mobile_number(number: str) -> bool:
     match = re.match(r"^(?!(.)\1{10})[1-9]{2}9\d{8}$", number)
     return match is not None
+
+
+def validate_pix(value: str) -> bool:
+    if validate_cpf(value):
+        return True
+
+    if validate_cnpj(value):
+        return True
+
+    if validate_email(value):
+        return True
+
+    if value.startswith("+55") and validate_mobile_number(value.replace("+55", "")):
+        return True
+
+    try:
+        UUID(value)
+        return True
+    except ValueError:
+        pass
+
+    return False
