@@ -75,3 +75,29 @@ class TestValidateMobileNumber(unittest.TestCase):
         result = any(map(validators.validate_mobile_number, numbers))
 
         self.assertFalse(result)
+
+
+class TestValidatePix(unittest.TestCase):
+    def test_valid_pix(self):
+        values = (
+            "01943533202",
+            "89930840000167",
+            "user.name@domain.com",
+            "+5594969161652",
+            "c3059309-a339-4585-9666-cc87749fd16b",
+        )
+        result = all(map(validators.validate_pix, values))
+
+        self.assertTrue(result)
+
+    def test_invalid_pix(self):
+        values = (
+            "0194353320",
+            "8993084000016",
+            "user.name",
+            "+559496916165",
+            "c3059309-a339-4585-9666-cc87749fd16",
+        )
+        result = any(map(validators.validate_pix, values))
+
+        self.assertFalse(result)
