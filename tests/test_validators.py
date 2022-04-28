@@ -69,27 +69,3 @@ class TestValidateMobileNumber(unittest.TestCase):
         result = any(map(validators.validate_mobile_number, numbers))
 
         self.assertFalse(result)
-
-
-class TestValidateUUID(unittest.TestCase):
-    def test_valid_uuids(self):
-        numbers = (
-            "4002b8d7-c34e-4d35-83c4-385befd9cbbe",
-            "627aa688-5092-4dff-ad53-0ec907695366",
-            "52f63d88-578a-4a4a-ae8f-dcf80b269282",
-            "c2af22b3-8395-4229-82f4-07eae0f49c84",
-        )
-        result = all(map(validators.validate_uuid, numbers))
-
-        self.assertTrue(result)
-
-    def test_invalid_uuids(self):
-        numbers = (
-            "4002b8d7-c34e-4d35-83c4-385befd9cbb",
-            "627aa688-5092-4dff-ad53-0ec90769536",
-            "52f63d88-578a-4a4a-ae8f-dcf80b26928",
-            "c2af22b3-8395-4229-82f4-07eae0f49c8",
-        )
-        result = any(map(validators.validate_uuid, numbers))
-
-        self.assertFalse(result)
