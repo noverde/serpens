@@ -14,8 +14,6 @@ class TestSentry(unittest.TestCase):
         exception = Exception()
         sentry.logger_exception(exception)
 
-        self.assertIsNone(Hub.current.client.transport)
-
     def test_before_send_with_exc_info(self):
         event = "foo"
         hint = {"exc_info": ["exception", "foo", "bar"]}
