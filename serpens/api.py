@@ -3,6 +3,7 @@ import logging
 from dataclasses import asdict, is_dataclass
 from functools import wraps
 
+from sentry import logger_exception
 from serpens import initializers
 from serpens.schema import SchemaEncoder
 
@@ -39,7 +40,7 @@ def handler(func):
 
             return response.to_dict()
         except Exception as ex:
-            logger.exception(ex)
+            logger_exception(ex)
 
             return {
                 "statusCode": 500,

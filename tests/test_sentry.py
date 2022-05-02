@@ -1,9 +1,21 @@
 import unittest
 
+from sentry_sdk import Hub, init
 from serpens import sentry
 
 
 class TestSentry(unittest.TestCase):
+    def test_logger_exception(self):
+        events = []
+        init(transport=events.append)
+
+        self.assertIsNotNone(Hub.current.client.transport)
+
+        exception = Exception()
+        sentry.logger_exception(exception)
+
+        self.assertIsNone(Hub.current.client.transport)
+
     def test_before_send_with_exc_info(self):
         event = "foo"
         hint = {"exc_info": ["exception", "foo", "bar"]}
