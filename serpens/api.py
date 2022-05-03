@@ -3,9 +3,9 @@ import logging
 from dataclasses import asdict, is_dataclass
 from functools import wraps
 
-from sentry import logger_exception
 from serpens import initializers
 from serpens.schema import SchemaEncoder
+from serpens.sentry import logger_exception
 
 initializers.setup()
 
