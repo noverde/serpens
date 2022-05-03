@@ -12,7 +12,7 @@ def logger_exception(exception: Exception) -> None:
 
     client = Hub.current.client
     if client is not None:
-        client.flush()
+        client.flush(timeout=2)
 
 
 def before_send(event, hint):
