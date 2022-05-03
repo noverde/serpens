@@ -9,10 +9,11 @@ class TestSentry(unittest.TestCase):
         events = []
         init(transport=events.append)
 
-        self.assertIsNotNone(Hub.current.client.transport)
-
         exception = Exception()
         sentry.logger_exception(exception)
+
+        client = Hub.current.client
+        self.assertIsNotNone(client.transport)
 
     def test_before_send_with_exc_info(self):
         event = "foo"
