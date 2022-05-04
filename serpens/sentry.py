@@ -2,8 +2,17 @@ import logging
 import os
 
 import sentry_sdk
+from sentry_sdk import Hub
 
 logger = logging.getLogger(__name__)
+
+
+def logger_exception(exception: Exception) -> None:
+    logger.exception(exception)
+
+    client = Hub.current.client
+    if client is not None:
+        client.flush(timeout=2)
 
 
 def before_send(event, hint):
