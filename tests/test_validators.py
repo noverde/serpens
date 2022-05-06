@@ -84,6 +84,7 @@ class TestValidatePix(unittest.TestCase):
             "89930840000167",
             "user.name@domain.com",
             "+5594969161652",
+            "94969161652",
             "c3059309-a339-4585-9666-cc87749fd16b",
         )
         result = all(map(validators.validate_pix, values))
