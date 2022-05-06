@@ -89,7 +89,7 @@ def validate_pix(value: str) -> bool:
     if validate_email(value):
         return True
 
-    if value.startswith("+55") and validate_mobile_number(value.replace("+55", "")):
+    if validate_mobile_number(value.replace("+55", "")):
         return True
 
     try:
