@@ -24,6 +24,54 @@ class TestPublishMessage(unittest.TestCase):
             MessageDeduplicationId=message_group_id,
         )
 
+    @patch("sqs.boto3")
+    def test_publish_message_succeeded_dict_message(self, m_boto3):
+        queue_url = "test.fifo"
+        body = {"message": "my message"}
+        message_group_id = "group-test-id"
+
+        sqs.publish_message(queue_url, body, message_group_id)
+
+        m_boto3.client.assert_called_once_with("sqs")
+        m_boto3.client.return_value.send_message.assert_called_once_with(
+            QueueUrl=queue_url,
+            MessageBody='{"message": "my message"}',
+            MessageGroupId=message_group_id,
+            MessageDeduplicationId=message_group_id,
+        )
+
+    @patch("sqs.boto3")
+    def test_publish_message_succeeded_dict_message_with_encoded_value(self, m_boto3):
+        queue_url = "test.fifo"
+        body = {"message": "my message", "sent_at": datetime(2022, 1, 1, 1)}
+        message_group_id = "group-test-id"
+
+        sqs.publish_message(queue_url, body, message_group_id)
+
+        m_boto3.client.assert_called_once_with("sqs")
+        m_boto3.client.return_value.send_message.assert_called_once_with(
+            QueueUrl=queue_url,
+            MessageBody='{"message": "my message", "sent_at": "2022-01-01T01:00:00"}',
+            MessageGroupId=message_group_id,
+            MessageDeduplicationId=message_group_id,
+        )
+
+    @patch("sqs.boto3")
+    def test_publish_message_succeeded_str_message(self, m_boto3):
+        queue_url = "test.fifo"
+        body = "try: import antigravity"
+        message_group_id = "group-test-id"
+
+        sqs.publish_message(queue_url, body, message_group_id)
+
+        m_boto3.client.assert_called_once_with("sqs")
+        m_boto3.client.return_value.send_message.assert_called_once_with(
+            QueueUrl=queue_url,
+            MessageBody="try: import antigravity",
+            MessageGroupId=message_group_id,
+            MessageDeduplicationId=message_group_id,
+        )
+
 
 class TestSQSHandler(unittest.TestCase):
     @classmethod

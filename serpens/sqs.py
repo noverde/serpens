@@ -7,6 +7,7 @@ from typing import Any, Dict, Union
 
 import boto3
 
+from schema import SchemaEncoder
 from serpens import initializers
 
 initializers.setup()
@@ -16,6 +17,10 @@ logger = logging.getLogger(__name__)
 
 def publish_message(queue_url, body, message_group_id=None):
     client = boto3.client("sqs")
+
+    if isinstance(body, dict):
+        body = json.dumps(body, cls=SchemaEncoder)
+
     params = {"QueueUrl": queue_url, "MessageBody": body}
 
     if queue_url.endswith(".fifo"):
