@@ -1,16 +1,17 @@
 import os
+import shlex
 import unittest
-
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from serpens.testgres import (
-    setup,
     docker_init,
     docker_pg_isready,
+    docker_pg_user_path,
     docker_port,
     docker_shell,
     docker_start,
     docker_stop,
+    setup,
     start_test_run,
     stop_test_run,
 )
@@ -52,6 +53,28 @@ class TestTestgres(unittest.TestCase):
         mrun.return_value.returncode = 2
         result = docker_pg_isready()
         self.assertEqual(result, 2)
+
+    @patch("serpens.testgres.schema", "testgres")
+    @patch("subprocess.run")
+    def test_docker_pg_user_path(self, mrun):
+        cmd = (
+            "docker exec testgres psql -U testgres -d testgres "
+            "-c 'CREATE SCHEMA testgres' "
+            "-c 'ALTER USER testgres SET search_path = testgres'"
+        )
+        expected_call_args = call(shlex.split(cmd), capture_output=True, encoding="utf-8")
+        mrun.return_value.returncode = 1
+
+        result = docker_pg_user_path()
+
+        self.assertEqual(result, 1)
+        self.assertEqual(mrun.call_args, expected_call_args)
+
+    @patch("subprocess.run")
+    def test_docker_pg_user_path_without_schema(self, mrun):
+        mrun.return_value.returncode = 1
+        result = docker_pg_user_path()
+        self.assertIsNone(result)
 
     @patch("serpens.testgres.print")
     @patch("serpens.testgres.docker_pg_isready")
