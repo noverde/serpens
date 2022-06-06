@@ -7,7 +7,7 @@ from typing import Any, Dict, Union
 
 import boto3
 
-from schema import SchemaEncoder
+from serpens.schema import SchemaEncoder
 from serpens import initializers
 
 initializers.setup()
