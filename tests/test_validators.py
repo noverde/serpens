@@ -51,6 +51,8 @@ class TestValidateEmail(unittest.TestCase):
             "@user.less",
             "invalid@test",
             "123@0.0.0.0",
+            "invalidãccent@domain.com",
+            "invalidáccênt@domain.com",
         )
         result = any(map(validators.validate_email, emails))
 
