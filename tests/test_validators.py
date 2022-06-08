@@ -37,6 +37,7 @@ class TestValidateEmail(unittest.TestCase):
             "user.name@domain.com",
             "Test_Case@company.com.br",
             "domain-ip-address@250.202.100.191",
+            "domain-ip-address123@250.202.100.191",
             "a.big_account-user~name!with^special#chars@the-test.io",
         )
         result = all(map(validators.validate_email, emails))
@@ -51,6 +52,9 @@ class TestValidateEmail(unittest.TestCase):
             "@user.less",
             "invalid@test",
             "123@0.0.0.0",
+            "invalidãccent@domain.com",
+            "invalidáccênt@domain.com",
+            "user name@domain.com",
         )
         result = any(map(validators.validate_email, emails))
 
