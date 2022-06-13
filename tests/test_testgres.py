@@ -96,6 +96,7 @@ class TestTestgres(unittest.TestCase):
         mdb.bind.assert_called_with(expected_uri, mapping=True)
         self.assertEqual(mdb.create_tables.call_count, 1)
 
+    @unittest.skip("WIP")
     @patch("serpens.testgres.docker_init", Mock())
     @patch("serpens.testgres.print")
     @patch("serpens.testgres.database")

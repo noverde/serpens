@@ -32,7 +32,13 @@ def docker_stop():
 
 
 def docker_pg_isready():
-    return docker_shell("docker exec testgres pg_isready").returncode
+    pg_isready = docker_shell("docker exec testgres pg_isready")
+
+    if pg_isready.returncode != 0:
+        return pg_isready.returncode
+
+    select_one = docker_shell("docker exec testgres psql -U testgres -d testgres -c 'SELECT 1'")
+    return select_one.returncode
 
 
 def docker_pg_user_path():
@@ -68,15 +74,12 @@ def docker_init():
 
 
 def start_test_run(self):
-    try:
-        uri = docker_init()
+    uri = docker_init()
 
-        database.bind(uri, mapping=True)
-        database.create_tables()
+    database.bind(uri, mapping=True)
+    database.create_tables()
 
-        default_start_test_run(self)
-    except Exception as e:
-        print(str(e))
+    default_start_test_run(self)
 
 
 def stop_test_run(self):
