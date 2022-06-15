@@ -54,21 +54,77 @@ class TestTestgres(unittest.TestCase):
         result = docker_pg_isready()
         self.assertEqual(result, 2)
 
-    @patch("serpens.testgres.schema", "testgres")
+    @patch("serpens.testgres.schemas", ["testgres"])
     @patch("subprocess.run")
     def test_docker_pg_user_path(self, mrun):
-        cmd = (
-            "docker exec testgres psql -U testgres -d testgres "
-            "-c 'CREATE SCHEMA testgres' "
-            "-c 'ALTER USER testgres SET search_path = testgres'"
+        cmd_base = "docker exec testgres psql -U testgres -d testgres "
+        cmd_create_schema = f"{cmd_base} -c 'CREATE SCHEMA testgres' "
+        cmd_set_user_path = f"{cmd_base} -c 'ALTER USER testgres SET search_path = testgres'"
+
+        expected_call_args_create_schema = call(
+            shlex.split(cmd_create_schema), capture_output=True, encoding="utf-8"
         )
-        expected_call_args = call(shlex.split(cmd), capture_output=True, encoding="utf-8")
+        expected_call_args_set_user_path = call(
+            shlex.split(cmd_set_user_path), capture_output=True, encoding="utf-8"
+        )
+
+        mrun.return_value.returncode = 0
+        mrun.return_value.stderr = None
+
+        result = docker_pg_user_path()
+
+        self.assertEqual(result, 0)
+        self.assertEqual(
+            mrun.call_args_list,
+            [
+                expected_call_args_create_schema,
+                expected_call_args_set_user_path,
+            ],
+        )
+
+    @patch("serpens.testgres.schemas", ["testgres", "loans"])
+    @patch("subprocess.run")
+    def test_docker_pg_user_multiple_paths(self, mrun):
+        cmd_base = "docker exec testgres psql -U testgres -d testgres "
+        cmd_create_testgres_schema = f"{cmd_base} -c 'CREATE SCHEMA testgres' "
+        cmd_create_loans_schema = f"{cmd_base} -c 'CREATE SCHEMA loans' "
+        cmd_set_user_path = f"{cmd_base} -c 'ALTER USER testgres SET search_path = testgres, loans'"
+
+        expected_call_args_create_testgres_schema = call(
+            shlex.split(cmd_create_testgres_schema), capture_output=True, encoding="utf-8"
+        )
+        expected_call_args_create_loans_schema = call(
+            shlex.split(cmd_create_loans_schema), capture_output=True, encoding="utf-8"
+        )
+        expected_call_args_set_user_path = call(
+            shlex.split(cmd_set_user_path), capture_output=True, encoding="utf-8"
+        )
+
+        mrun.return_value.returncode = 0
+        mrun.return_value.stderr = None
+
+        result = docker_pg_user_path()
+
+        self.assertEqual(result, 0)
+        self.assertEqual(
+            mrun.call_args_list,
+            [
+                expected_call_args_create_testgres_schema,
+                expected_call_args_create_loans_schema,
+                expected_call_args_set_user_path,
+            ],
+        )
+
+    @patch("serpens.testgres.schemas", ["lo~ns"])
+    @patch("subprocess.run")
+    def test_docker_pg_user_invalid_path(self, mrun):
         mrun.return_value.returncode = 1
+        mrun.return_value.stderr = "ERROR:  syntax error at or near '~'"
 
         result = docker_pg_user_path()
 
         self.assertEqual(result, 1)
-        self.assertEqual(mrun.call_args, expected_call_args)
+        self.assertEqual(mrun.call_count, 1)
 
     @patch("subprocess.run")
     def test_docker_pg_user_path_without_schema(self, mrun):

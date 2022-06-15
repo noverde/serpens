@@ -9,12 +9,12 @@ default_start_test_run = unittest.result.TestResult.startTestRun
 default_stop_test_run = unittest.result.TestResult.stopTestRun
 
 database = None
-schema = None
+schemas = []
 
 
 def docker_shell(cmd, output=True):
     result = subprocess.run(shlex.split(cmd), capture_output=True, encoding="utf-8")
-    if output and result.stderr and not result.returncode:
+    if output and result.stderr:
         print(result.stderr)
     return result
 
@@ -36,12 +36,18 @@ def docker_pg_isready():
 
 
 def docker_pg_user_path():
-    if schema is None:
+    if schemas == []:
         return None
 
-    create_schema = f"-c 'CREATE SCHEMA {schema}'"
-    set_search_path = f"-c 'ALTER USER testgres SET search_path = {schema}'"
-    cmd = f"psql -U testgres -d testgres {create_schema} {set_search_path}"
+    for schema in schemas:
+        cmd = f"psql -U testgres -d testgres -c 'CREATE SCHEMA {schema}'"
+        stdout = docker_shell(f"docker exec testgres {cmd}").returncode
+
+        if stdout != 0:
+            return stdout
+
+    set_search_path = f"-c 'ALTER USER testgres SET search_path = {', '.join(schemas)}'"
+    cmd = f"psql -U testgres -d testgres {set_search_path}"
 
     return docker_shell(f"docker exec testgres {cmd}").returncode
 
@@ -84,15 +90,15 @@ def stop_test_run(self):
     default_stop_test_run(self)
 
 
-def setup(db, uri=None, default_schema=None):
+def setup(db, uri=None, default_schemas=[]):
     if uri is None:
         uri = os.environ.get("DATABASE_URL")
 
     if uri:
         return db.create_tables()
 
-    global database, schema
+    global database, schemas
     database = db
-    schema = default_schema
+    schemas = default_schemas
     unittest.result.TestResult.startTestRun = start_test_run
     unittest.result.TestResult.stopTestRun = stop_test_run
