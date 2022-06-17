@@ -9,7 +9,7 @@ default_start_test_run = unittest.result.TestResult.startTestRun
 default_stop_test_run = unittest.result.TestResult.stopTestRun
 
 database = None
-schemas = []
+schemas = None
 
 
 def docker_shell(cmd, output=True):
@@ -36,11 +36,11 @@ def docker_pg_isready():
 
 
 def docker_pg_user_path():
-    if schemas == []:
+    if not schemas:
         return None
 
     for schema in schemas:
-        cmd = f"psql -U testgres -d testgres -c 'CREATE SCHEMA {schema}'"
+        cmd = f"psql -U testgres -d testgres -c 'CREATE SCHEMA IF NOT EXISTS {schema}'"
         stdout = docker_shell(f"docker exec testgres {cmd}").returncode
 
         if stdout != 0:
