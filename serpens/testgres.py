@@ -39,17 +39,17 @@ def docker_pg_user_path():
     if not schemas:
         return None
 
+    cmd_docker = "docker exec testgres psql -U testgres -d testgres -c"
+    cmd_schema = ""
+
     for schema in schemas:
-        cmd = f"psql -U testgres -d testgres -c 'CREATE SCHEMA IF NOT EXISTS {schema}'"
-        return_code = docker_shell(f"docker exec testgres {cmd}").returncode
+        cmd_schema += f"'CREATE SCHEMA IF NOT EXISTS {schema}';"
 
-        if return_code != 0:
-            return return_code
+    docker_shell(f"{cmd_docker} {cmd_schema}")
 
-    set_search_path = f"-c 'ALTER USER testgres SET search_path = {', '.join(schemas)}'"
-    cmd = f"psql -U testgres -d testgres {set_search_path}"
+    set_search_path = f"'ALTER USER testgres SET search_path = {', '.join(schemas)}'"
 
-    return docker_shell(f"docker exec testgres {cmd}").returncode
+    return docker_shell(f"{cmd_docker} {set_search_path}").returncode
 
 
 def docker_port():
