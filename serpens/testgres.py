@@ -41,10 +41,10 @@ def docker_pg_user_path():
 
     for schema in schemas:
         cmd = f"psql -U testgres -d testgres -c 'CREATE SCHEMA IF NOT EXISTS {schema}'"
-        stdout = docker_shell(f"docker exec testgres {cmd}").returncode
+        return_code = docker_shell(f"docker exec testgres {cmd}").returncode
 
-        if stdout != 0:
-            return stdout
+        if return_code != 0:
+            return return_code
 
     set_search_path = f"-c 'ALTER USER testgres SET search_path = {', '.join(schemas)}'"
     cmd = f"psql -U testgres -d testgres {set_search_path}"

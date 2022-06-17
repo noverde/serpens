@@ -84,7 +84,7 @@ class TestTestgres(unittest.TestCase):
 
     @patch("serpens.testgres.schemas", ["testgres", "loans"])
     @patch("subprocess.run")
-    def test_docker_pg_user_multiple_paths(self, mrun):
+    def test_docker_pg_user_multiple_schemas(self, mrun):
         cmd_base = "docker exec testgres psql -U testgres -d testgres "
         cmd_create_testgres_schema = f"{cmd_base} -c 'CREATE SCHEMA IF NOT EXISTS testgres' "
         cmd_create_loans_schema = f"{cmd_base} -c 'CREATE SCHEMA IF NOT EXISTS loans' "
@@ -118,7 +118,7 @@ class TestTestgres(unittest.TestCase):
     @patch("serpens.testgres.print")
     @patch("serpens.testgres.schemas", ["lo~ns"])
     @patch("subprocess.run")
-    def test_docker_pg_user_invalid_path(self, mrun, mlog):
+    def test_docker_pg_user_invalid_schema(self, mrun, mlog):
         mlog.return_value = None
         mrun.return_value.returncode = 1
         mrun.return_value.stderr = "ERROR:  syntax error at or near '~'"
