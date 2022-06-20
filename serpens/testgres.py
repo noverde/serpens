@@ -43,7 +43,7 @@ def docker_pg_user_path():
     set_search_path = f"ALTER USER testgres SET search_path = {schema}"
     cmd = f"psql -U testgres -d testgres -c '{create_schema} {set_search_path}'"
 
-    return docker_shell(f"docker exec testgres {cmd}").returncode
+    return docker_shell(f"docker exec testgres {cmd}", output=False).returncode
 
 
 def docker_port():
