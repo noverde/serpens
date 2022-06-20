@@ -9,7 +9,7 @@ default_start_test_run = unittest.result.TestResult.startTestRun
 default_stop_test_run = unittest.result.TestResult.stopTestRun
 
 database = None
-schemas = None
+schema = None
 
 
 def docker_shell(cmd, output=True):
@@ -36,18 +36,14 @@ def docker_pg_isready():
 
 
 def docker_pg_user_path():
-    if not schemas:
+    if schema is None:
         return None
 
-    cmd_docker = "docker exec testgres psql -U testgres -d testgres -c"
-    cmd_schema = ""
+    create_schema = " ".join([f"CREATE SCHEMA IF NOT EXISTS {s};" for s in schema.split(",")])
+    set_search_path = f"ALTER USER testgres SET search_path = {schema}"
+    cmd = f"psql -U testgres -d testgres -c '{create_schema} {set_search_path}'"
 
-    for schema in schemas:
-        cmd_schema += f"CREATE SCHEMA IF NOT EXISTS {schema};"
-
-    set_search_path = f"ALTER USER testgres SET search_path = {', '.join(schemas)}"
-
-    return docker_shell(f"{cmd_docker} '{cmd_schema} {set_search_path}'", output=False).returncode
+    return docker_shell(f"docker exec testgres {cmd}").returncode
 
 
 def docker_port():
@@ -88,15 +84,15 @@ def stop_test_run(self):
     default_stop_test_run(self)
 
 
-def setup(db, uri=None, default_schemas=[]):
+def setup(db, uri=None, default_schema=None):
     if uri is None:
         uri = os.environ.get("DATABASE_URL")
 
     if uri:
         return db.create_tables()
 
-    global database, schemas
+    global database, schema
     database = db
-    schemas = default_schemas
+    schema = default_schema
     unittest.result.TestResult.startTestRun = start_test_run
     unittest.result.TestResult.stopTestRun = stop_test_run

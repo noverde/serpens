@@ -58,7 +58,7 @@ class TestTestgres(unittest.TestCase):
         result = docker_pg_isready()
         self.assertEqual(result, 2)
 
-    @patch("serpens.testgres.schemas", ["testgres"])
+    @patch("serpens.testgres.schema", "testgres")
     def test_docker_pg_user_path(self):
         cmd_base = "docker exec testgres psql -U testgres -d testgres -c "
         cmd_create_schema = "CREATE SCHEMA IF NOT EXISTS testgres;"
@@ -77,11 +77,11 @@ class TestTestgres(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertEqual(self.mrun.call_args, expected_call_args)
 
-    @patch("serpens.testgres.schemas", ["test", "loans"])
+    @patch("serpens.testgres.schema", "test,loans")
     def test_docker_pg_user_multiple_schemas(self):
         cmd_base = "docker exec testgres psql -U testgres -d testgres -c "
-        cmd_create_schema = "CREATE SCHEMA IF NOT EXISTS test;CREATE SCHEMA IF NOT EXISTS loans;"
-        cmd_set_user_path = "ALTER USER testgres SET search_path = test, loans"
+        cmd_create_schema = "CREATE SCHEMA IF NOT EXISTS test; CREATE SCHEMA IF NOT EXISTS loans;"
+        cmd_set_user_path = "ALTER USER testgres SET search_path = test,loans"
 
         expected_call_args = call(
             shlex.split(f"{cmd_base} '{cmd_create_schema} {cmd_set_user_path}'"),
@@ -96,7 +96,7 @@ class TestTestgres(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertEqual(self.mrun.call_args, expected_call_args)
 
-    @patch("serpens.testgres.schemas", ["lo~ns"])
+    @patch("serpens.testgres.schema", "lo~ns")
     def test_docker_pg_user_invalid_schema(self):
         self.mrun.return_value.returncode = 1
         self.mrun.return_value.stderr = "ERROR:  syntax error at or near '~'"
