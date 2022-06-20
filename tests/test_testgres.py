@@ -64,11 +64,10 @@ class TestTestgres(unittest.TestCase):
         cmd_create_schema = "'CREATE SCHEMA IF NOT EXISTS testgres;'"
         cmd_set_user_path = "'ALTER USER testgres SET search_path = testgres'"
 
-        expected_call_args_create_schema = call(
-            shlex.split(f"{cmd_base} {cmd_create_schema}"), capture_output=True, encoding="utf-8"
-        )
-        expected_call_args_set_user_path = call(
-            shlex.split(f"{cmd_base} {cmd_set_user_path}"), capture_output=True, encoding="utf-8"
+        expected_call_args = call(
+            shlex.split(f"{cmd_base} {cmd_create_schema} {cmd_set_user_path}"),
+            capture_output=True,
+            encoding="utf-8",
         )
 
         self.mrun.return_value.returncode = 0
@@ -76,13 +75,7 @@ class TestTestgres(unittest.TestCase):
         result = docker_pg_user_path()
 
         self.assertEqual(result, 0)
-        self.assertEqual(
-            self.mrun.call_args_list,
-            [
-                expected_call_args_create_schema,
-                expected_call_args_set_user_path,
-            ],
-        )
+        self.assertEqual(self.mrun.call_args, expected_call_args)
 
     @patch("serpens.testgres.schemas", ["test", "loans"])
     def test_docker_pg_user_multiple_schemas(self):
@@ -90,11 +83,10 @@ class TestTestgres(unittest.TestCase):
         cmd_create_schema = "'CREATE SCHEMA IF NOT EXISTS test;CREATE SCHEMA IF NOT EXISTS loans;'"
         cmd_set_user_path = "'ALTER USER testgres SET search_path = test, loans'"
 
-        expected_call_args_create_schema = call(
-            shlex.split(f"{cmd_base} {cmd_create_schema}"), capture_output=True, encoding="utf-8"
-        )
-        expected_call_args_set_user_path = call(
-            shlex.split(f"{cmd_base} {cmd_set_user_path}"), capture_output=True, encoding="utf-8"
+        expected_call_args = call(
+            shlex.split(f"{cmd_base} {cmd_create_schema} {cmd_set_user_path}"),
+            capture_output=True,
+            encoding="utf-8",
         )
 
         self.mrun.return_value.returncode = 0
@@ -102,13 +94,7 @@ class TestTestgres(unittest.TestCase):
         result = docker_pg_user_path()
 
         self.assertEqual(result, 0)
-        self.assertEqual(
-            self.mrun.call_args_list,
-            [
-                expected_call_args_create_schema,
-                expected_call_args_set_user_path,
-            ],
-        )
+        self.assertEqual(self.mrun.call_args, expected_call_args)
 
     @patch("serpens.testgres.schemas", ["lo~ns"])
     def test_docker_pg_user_invalid_schema(self):
@@ -118,7 +104,7 @@ class TestTestgres(unittest.TestCase):
         result = docker_pg_user_path()
 
         self.assertEqual(result, 1)
-        self.assertEqual(self.mrun.call_count, 2)
+        self.assertEqual(self.mrun.call_count, 1)
 
     def test_docker_pg_user_path_without_schema(self):
         result = docker_pg_user_path()

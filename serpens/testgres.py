@@ -45,11 +45,9 @@ def docker_pg_user_path():
     for schema in schemas:
         cmd_schema += f"'CREATE SCHEMA IF NOT EXISTS {schema}';"
 
-    docker_shell(f"{cmd_docker} {cmd_schema}")
-
     set_search_path = f"'ALTER USER testgres SET search_path = {', '.join(schemas)}'"
 
-    return docker_shell(f"{cmd_docker} {set_search_path}").returncode
+    return docker_shell(f"{cmd_docker} {cmd_schema} {set_search_path}").returncode
 
 
 def docker_port():
