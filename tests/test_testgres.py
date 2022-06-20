@@ -61,11 +61,11 @@ class TestTestgres(unittest.TestCase):
     @patch("serpens.testgres.schemas", ["testgres"])
     def test_docker_pg_user_path(self):
         cmd_base = "docker exec testgres psql -U testgres -d testgres -c "
-        cmd_create_schema = "'CREATE SCHEMA IF NOT EXISTS testgres;'"
-        cmd_set_user_path = "'ALTER USER testgres SET search_path = testgres'"
+        cmd_create_schema = "CREATE SCHEMA IF NOT EXISTS testgres;"
+        cmd_set_user_path = "ALTER USER testgres SET search_path = testgres"
 
         expected_call_args = call(
-            shlex.split(f"{cmd_base} {cmd_create_schema} {cmd_set_user_path}"),
+            shlex.split(f"{cmd_base} '{cmd_create_schema} {cmd_set_user_path}'"),
             capture_output=True,
             encoding="utf-8",
         )
@@ -80,11 +80,11 @@ class TestTestgres(unittest.TestCase):
     @patch("serpens.testgres.schemas", ["test", "loans"])
     def test_docker_pg_user_multiple_schemas(self):
         cmd_base = "docker exec testgres psql -U testgres -d testgres -c "
-        cmd_create_schema = "'CREATE SCHEMA IF NOT EXISTS test;CREATE SCHEMA IF NOT EXISTS loans;'"
-        cmd_set_user_path = "'ALTER USER testgres SET search_path = test, loans'"
+        cmd_create_schema = "CREATE SCHEMA IF NOT EXISTS test;CREATE SCHEMA IF NOT EXISTS loans;"
+        cmd_set_user_path = "ALTER USER testgres SET search_path = test, loans"
 
         expected_call_args = call(
-            shlex.split(f"{cmd_base} {cmd_create_schema} {cmd_set_user_path}"),
+            shlex.split(f"{cmd_base} '{cmd_create_schema} {cmd_set_user_path}'"),
             capture_output=True,
             encoding="utf-8",
         )
