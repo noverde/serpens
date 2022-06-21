@@ -14,7 +14,7 @@ schema = None
 
 def docker_shell(cmd, output=True):
     result = subprocess.run(shlex.split(cmd), capture_output=True, encoding="utf-8")
-    if output and result.stderr and not result.returncode:
+    if output and result.stderr:
         print(result.stderr)
     return result
 
@@ -39,11 +39,11 @@ def docker_pg_user_path():
     if schema is None:
         return None
 
-    create_schema = f"-c 'CREATE SCHEMA {schema}'"
-    set_search_path = f"-c 'ALTER USER testgres SET search_path = {schema}'"
-    cmd = f"psql -U testgres -d testgres {create_schema} {set_search_path}"
+    create_schema = " ".join([f"CREATE SCHEMA IF NOT EXISTS {s};" for s in schema.split(",")])
+    set_search_path = f"ALTER USER testgres SET search_path = {schema}"
+    cmd = f"psql -U testgres -d testgres -c '{create_schema}' -c '{set_search_path}'"
 
-    return docker_shell(f"docker exec testgres {cmd}").returncode
+    return docker_shell(f"docker exec testgres {cmd}", output=False).returncode
 
 
 def docker_port():
