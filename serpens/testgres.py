@@ -41,7 +41,7 @@ def docker_pg_user_path():
 
     create_schema = " ".join([f"CREATE SCHEMA IF NOT EXISTS {s};" for s in schema.split(",")])
     set_search_path = f"ALTER USER testgres SET search_path = {schema}"
-    cmd = f"psql -U testgres -d testgres -c '{create_schema} {set_search_path}'"
+    cmd = f"psql -U testgres -d testgres -c '{create_schema}' -c '{set_search_path}'"
 
     return docker_shell(f"docker exec testgres {cmd}", output=False).returncode
 

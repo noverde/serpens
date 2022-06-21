@@ -65,7 +65,7 @@ class TestTestgres(unittest.TestCase):
         cmd_set_user_path = "ALTER USER testgres SET search_path = testgres"
 
         expected_call_args = call(
-            shlex.split(f"{cmd_base} '{cmd_create_schema} {cmd_set_user_path}'"),
+            shlex.split(f"{cmd_base} '{cmd_create_schema}' -c '{cmd_set_user_path}'"),
             capture_output=True,
             encoding="utf-8",
         )
@@ -84,7 +84,7 @@ class TestTestgres(unittest.TestCase):
         cmd_set_user_path = "ALTER USER testgres SET search_path = test,loans"
 
         expected_call_args = call(
-            shlex.split(f"{cmd_base} '{cmd_create_schema} {cmd_set_user_path}'"),
+            shlex.split(f"{cmd_base} '{cmd_create_schema}' -c '{cmd_set_user_path}'"),
             capture_output=True,
             encoding="utf-8",
         )
