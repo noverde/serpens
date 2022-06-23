@@ -3,7 +3,9 @@ import logging
 from yoyo import read_migrations
 from yoyo import get_backend
 
-from serpens import envvars
+from serpens import envvars, log
+
+log.setup()
 
 
 def migrate(uri, migrations_path):
