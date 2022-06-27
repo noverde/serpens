@@ -23,8 +23,9 @@ class TestLambdaFunction(unittest.TestCase):
         m_boto3.client.return_value.invoke.return_value = aws_response
 
         response = lambda_function.invoke("function-test", {})
+        payload = json.loads(response["Payload"].read())
 
-        self.assertDictEqual(response, {"key": "value"})
+        self.assertDictEqual(payload, {"key": "value"})
 
     @patch("lambda_function.boto3")
     def test_invoke_failed(self, m_boto3):
