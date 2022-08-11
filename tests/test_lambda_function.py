@@ -7,10 +7,10 @@ from botocore.response import StreamingBody
 from io import BytesIO
 
 
+@patch("lambda_function.boto3")
 class TestLambdaFunction(unittest.TestCase):
-    @patch("lambda_function.boto3")
     def test_invoke_succeeded(self, m_boto3):
-        payload_encoded = json.dumps({"key": "value"}).encode("utf-8")
+        payload_encoded = json.dumps({"key": "value"}).encode()
         payload = StreamingBody(BytesIO(payload_encoded), len(payload_encoded))
 
         aws_response = {
@@ -47,9 +47,8 @@ class TestLambdaFunction(unittest.TestCase):
 
         self.assertDictEqual(response, expected)
 
-    @patch("lambda_function.boto3")
     def test_invoke_with_lambda_error(self, m_boto3):
-        payload_encoded = json.dumps({"error": "invoke error"}).encode("utf-8")
+        payload_encoded = json.dumps({"error": "invoke error"}).encode()
         payload = StreamingBody(BytesIO(payload_encoded), len(payload_encoded))
 
         aws_response = {
@@ -86,9 +85,8 @@ class TestLambdaFunction(unittest.TestCase):
         response = lambda_function.invoke("function-test", {})
         self.assertDictEqual(response, expected)
 
-    @patch("lambda_function.boto3")
     def test_invoke_with_exception(self, m_boto3):
-        payload_encoded = json.dumps({"error": "invoke error"}).encode("utf-8")
+        payload_encoded = json.dumps({"error": "invoke error"}).encode()
         payload = StreamingBody(BytesIO(payload_encoded), len(payload_encoded))
 
         m_boto3.client.return_value.invoke.side_effect = Exception("Error message")
