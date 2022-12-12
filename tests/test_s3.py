@@ -82,3 +82,11 @@ class TestS3(unittest.TestCase):
 
         response = s3.list_objects("unreal-bucket", "2021/05/10/")
         self.assertIsNone(response)
+
+    @patch("s3.boto3")
+    def test_generate_presigned_url(self, m_boto3):
+        url = "https://test.s3"
+        m_boto3.client.return_value.generate_presigned_url.return_value = url
+
+        response = s3.generate_presigned_url(bucket="test", key="test.txt")
+        self.assertEqual(response, url)
