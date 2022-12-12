@@ -90,3 +90,10 @@ class TestS3(unittest.TestCase):
 
         response = s3.generate_presigned_url(bucket="test", key="test.txt")
         self.assertEqual(response, url)
+
+    @patch("s3.boto3")
+    def test_generate_presigned_url_error(self, m_boto3):
+        m_boto3.client.return_value.generate_presigned_url.side_effect = Exception()
+
+        response = s3.generate_presigned_url(bucket="test", key="test.txt")
+        self.assertIsNone(response)

@@ -33,12 +33,14 @@ def list_objects(bucket, key):
 
 def generate_presigned_url(bucket, key, period=3600):
     client = boto3.client("s3")
-
-    return client.generate_presigned_url(
-        ClientMethod="get_object",
-        Params={"Bucket": bucket, "Key": key},
-        ExpiresIn=period,
-    )
+    try:
+        return client.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=period,
+        )
+    except Exception:
+        return None
 
 
 def exists(bucket, key):
