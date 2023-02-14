@@ -1,7 +1,6 @@
-import os
 from enum import Enum
 import elasticapm
-import envvars
+from serpens import envvars
 
 
 class EnvironmentType(Enum):
@@ -19,9 +18,9 @@ def setup() -> None:
     elasticapm.Client(
         {
             "service_name": service_name,
-            "server_url": os.getenv("ELASTIC_APM_SERVER_URL"),
+            "server_url": envvars.get("ELASTIC_APM_SERVER_URL"),
             "environment": EnvironmentType[environment].value,
-            "secret_token": os.getenv("ELASTIC_APM_SECRET_TOKEN"),
+            "secret_token": envvars.get("ELASTIC_APM_SECRET_TOKEN"),
         }
     )
     elasticapm.instrumentation.control.instrument()

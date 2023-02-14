@@ -7,8 +7,7 @@
 #
 import os
 
-import elastic
-
+from serpens import elastic
 from serpens import log
 
 
