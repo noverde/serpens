@@ -7,10 +7,13 @@
 #
 import os
 
+import elastic
+
 from serpens import log
 
 
 def setup():
+    elastic.setup()
     log.setup()
     if "SENTRY_DSN" in os.environ:
         from serpens import sentry
