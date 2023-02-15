@@ -17,11 +17,11 @@ client = elasticapm.get_client()
 from elasticapm import capture_serverless
 
 
-@capture_serverless
 def handler(func):
     # elasticapm.label(platform="DemoPlatform", application="DemoApplication")
 
     @wraps(func)
+    @capture_serverless
     def wrapper(event, context):
         logger.debug(f"Received data: {event}")
 
