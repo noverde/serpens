@@ -1,6 +1,7 @@
 from enum import Enum
 import elasticapm
 from serpens import envvars
+import os
 
 
 class EnvironmentType(Enum):
@@ -14,7 +15,6 @@ def setup() -> None:
     environment = envvars.get("ENVIRONMENT", "development")
 
     service_name = envvars.get("AWS_LAMBDA_FUNCTION_NAME", "teste").split("-development")[0]
-    print(service_name, envvars.get("ELASTIC_APM_SERVER_URL"), EnvironmentType[environment].value)
 
     elasticapm.Client(
         {
@@ -25,3 +25,15 @@ def setup() -> None:
         }
     )
     elasticapm.instrumentation.control.instrument()
+
+
+from elasticapm import capture_serverless  # , get_client
+
+
+def apply_elk_logger(func):
+    def wrapper(*args, **kwargs):
+        if os.get("ELASTIC_APM_SERVER_URL") and os.get("ELASTIC_APM_SECRET_TOKEN"):
+            return capture_serverless(func)(*args, **kwargs)
+        return func(*args, **kwargs)
+
+    return wrapper

@@ -7,31 +7,27 @@ from serpens import initializers
 from serpens.schema import SchemaEncoder
 from serpens.sentry import logger_exception
 
-import elasticapm
+# from elasticapm import capture_serverless  # , get_client
+from serpens.elastic import apply_elk_logger
 
 initializers.setup()
 
 logger = logging.getLogger(__name__)
-client = elasticapm.get_client()
-
-from elasticapm import capture_serverless
+# client = get_client()
+# client.close()
 
 
 def handler(func):
-    # elasticapm.label(platform="DemoPlatform", application="DemoApplication")
-
     @wraps(func)
-    @capture_serverless
+    @apply_elk_logger
     def wrapper(event, context):
         logger.debug(f"Received data: {event}")
 
-        # client.begin_transaction("request")
         try:
             request = Request(event)
             result = func(request)
 
             if isinstance(result, Response):
-                # client.end_transaction("request", "success")
                 return result.to_dict()
 
             response = Response()
@@ -47,11 +43,9 @@ def handler(func):
                 result = json.dumps(result, cls=SchemaEncoder)
 
             response.body = result
-            # client.end_transaction("request", "success")
             return response.to_dict()
         except Exception as ex:
             logger_exception(ex)
-            # client.end_transaction("request", "error")
             return {
                 "statusCode": 500,
                 "body": json.dumps(
