@@ -16,7 +16,7 @@ client = elasticapm.get_client()
 
 
 def handler(func):
-    # elasticapm.label(platform='DemoPlatform', application='DemoApplication')
+    elasticapm.label(platform="DemoPlatform", application="DemoApplication")
 
     @wraps(func)
     def wrapper(event, context):
