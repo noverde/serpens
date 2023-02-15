@@ -13,7 +13,8 @@ def setup() -> None:
 
     environment = envvars.get("ENVIRONMENT", "development")
 
-    service_name = envvars.get("AWS_LAMBDA_FUNCTION_NAME", "").split("-development")[0]
+    service_name = envvars.get("AWS_LAMBDA_FUNCTION_NAME", "teste")  # .split("-development")[0]
+    print(service_name, envvars.get("ELASTIC_APM_SERVER_URL"), EnvironmentType[environment].value)
 
     elasticapm.Client(
         {
