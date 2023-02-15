@@ -14,20 +14,24 @@ initializers.setup()
 logger = logging.getLogger(__name__)
 client = elasticapm.get_client()
 
+from elasticapm import capture_serverless
 
+
+@capture_serverless
 def handler(func):
-    elasticapm.label(platform="DemoPlatform", application="DemoApplication")
+    # elasticapm.label(platform="DemoPlatform", application="DemoApplication")
 
     @wraps(func)
     def wrapper(event, context):
         logger.debug(f"Received data: {event}")
 
-        client.begin_transaction("request")
+        # client.begin_transaction("request")
         try:
             request = Request(event)
             result = func(request)
 
             if isinstance(result, Response):
+                # client.end_transaction("request", "success")
                 return result.to_dict()
 
             response = Response()
@@ -43,11 +47,11 @@ def handler(func):
                 result = json.dumps(result, cls=SchemaEncoder)
 
             response.body = result
-            client.end_transaction("request", "success")
+            # client.end_transaction("request", "success")
             return response.to_dict()
         except Exception as ex:
             logger_exception(ex)
-            client.end_transaction("request", "error")
+            # client.end_transaction("request", "error")
             return {
                 "statusCode": 500,
                 "body": json.dumps(
