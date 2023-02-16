@@ -3,10 +3,10 @@ import logging
 from dataclasses import asdict, is_dataclass
 from functools import wraps
 
-from serpens import initializers
+from serpens import initializers, elastic
 from serpens.schema import SchemaEncoder
 from serpens.sentry import logger_exception
-from serpens import elastic
+
 
 initializers.setup()
 

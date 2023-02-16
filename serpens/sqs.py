@@ -8,7 +8,7 @@ from typing import Any, Dict, Union
 import boto3
 
 from serpens.schema import SchemaEncoder
-from serpens import initializers
+from serpens import initializers, elastic
 
 initializers.setup()
 
@@ -32,6 +32,7 @@ def publish_message(queue_url, body, message_group_id=None):
 
 def handler(func):
     @wraps(func)
+    @elastic.logger
     def wrapper(event: dict, context: dict):
         logger.debug(f"Received data: {event}")
 
