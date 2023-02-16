@@ -1,3 +1,4 @@
+import sys
 import os
 import logging
 from functools import wraps
@@ -18,3 +19,16 @@ def logger(func):
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def capture_exception(exception, is_http_request=False):
+    if "ELASTIC_APM_SECRET_TOKEN" in os.environ:
+        elasticapm.get_client().capture_exception(exc_info=sys.exc_info(), handled=False)
+
+        if is_http_request:
+            elasticapm.set_transaction_result("HTTP 5xx", override=False)
+            elasticapm.set_transaction_outcome(http_status_code=500, override=False)
+            elasticapm.set_context({"status_code": 500}, "response")
+        else:
+            elasticapm.set_transaction_result("failure", override=False)
+            elasticapm.set_transaction_outcome(outcome="failure", override=False)

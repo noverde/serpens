@@ -7,7 +7,7 @@
 #
 import os
 
-from serpens import log
+from serpens import log, envvars
 
 
 def setup():
@@ -16,3 +16,6 @@ def setup():
         from serpens import sentry
 
         sentry.setup()
+
+    if "ELASTIC_APM_SECRET_TOKEN" in os.environ:
+        os.environ["ELASTIC_APM_SECRET_TOKEN"] = envvars.get("ELASTIC_APM_SECRET_TOKEN")
