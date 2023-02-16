@@ -11,7 +11,6 @@ from serpens import log
 
 
 def setup():
-
     log.setup()
     if "SENTRY_DSN" in os.environ:
         from serpens import sentry
