@@ -2,6 +2,7 @@ import json
 import logging
 from dataclasses import asdict, is_dataclass
 from functools import wraps
+import os
 
 from serpens import initializers, elastic
 from serpens.schema import SchemaEncoder
@@ -42,6 +43,10 @@ def handler(func):
             return response.to_dict()
         except Exception as ex:
             logger_exception(ex)
+            if "ELASTIC_APM_SECRET_TOKEN" in os.environ:
+                import elasticapm
+
+                elasticapm.get_client().capture_exception()
             return {
                 "statusCode": 500,
                 "body": json.dumps(
