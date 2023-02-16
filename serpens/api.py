@@ -6,20 +6,16 @@ from functools import wraps
 from serpens import initializers
 from serpens.schema import SchemaEncoder
 from serpens.sentry import logger_exception
-
-# from elasticapm import capture_serverless  # , get_client
-from serpens.elastic import apply_elk_logger
+from serpens import elastic
 
 initializers.setup()
 
 logger = logging.getLogger(__name__)
-# client = get_client()
-# client.close()
 
 
 def handler(func):
     @wraps(func)
-    @apply_elk_logger
+    @elastic.logger
     def wrapper(event, context):
         logger.debug(f"Received data: {event}")
 
