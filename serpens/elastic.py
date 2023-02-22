@@ -2,6 +2,7 @@ import sys
 import os
 import logging
 from functools import wraps
+from serpens import envvars
 
 logger = logging.getLogger(__name__)
 
@@ -32,3 +33,8 @@ def capture_exception(exception, is_http_request=False):
         else:
             elasticapm.set_transaction_result("failure", override=False)
             elasticapm.set_transaction_outcome(outcome="failure", override=False)
+
+
+def setup():
+    if "ELASTIC_APM_SECRET_TOKEN" in os.environ:
+        os.environ["ELASTIC_APM_SECRET_TOKEN"] = envvars.get("ELASTIC_APM_SECRET_TOKEN")
