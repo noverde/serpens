@@ -6,9 +6,8 @@
 # found in the LICENSE file or at https://opensource.org/licenses/MIT.
 #
 import os
-import elastic
 
-from serpens import log
+from serpens import log, elastic
 
 
 def setup():
