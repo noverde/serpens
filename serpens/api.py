@@ -3,9 +3,10 @@ import logging
 from dataclasses import asdict, is_dataclass
 from functools import wraps
 
-from serpens import initializers
+from serpens import initializers, elastic
 from serpens.schema import SchemaEncoder
 from serpens.sentry import logger_exception
+
 
 initializers.setup()
 
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 def handler(func):
     @wraps(func)
+    @elastic.logger
     def wrapper(event, context):
         logger.debug(f"Received data: {event}")
 
@@ -37,11 +39,10 @@ def handler(func):
                 result = json.dumps(result, cls=SchemaEncoder)
 
             response.body = result
-
             return response.to_dict()
         except Exception as ex:
             logger_exception(ex)
-
+            elastic.capture_exception(ex, is_http_request=True)
             return {
                 "statusCode": 500,
                 "body": json.dumps(
