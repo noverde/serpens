@@ -14,6 +14,47 @@ initializers.setup()
 
 logger = logging.getLogger(__name__)
 
+SQS_MESSAGE_BATCH_SIZE = 10
+
+
+def send_batch_message(queue_url, entries):
+    client = boto3.client("sqs")
+    response = client.send_message_batch(QueueUrl=queue_url, Entries=entries)
+    if "Failed" in response:
+        failed_ids = [msg["Id"] for msg in response["Failed"]]
+        return failed_ids
+
+
+def publish_message_batch(queue_url, messages, message_attributes={}, batch_size=10):
+    entries = []
+    failed_messages = []
+    if batch_size >= SQS_MESSAGE_BATCH_SIZE:
+        batch_size = SQS_MESSAGE_BATCH_SIZE
+
+    for body in messages:
+        if isinstance(body, dict):
+            body = json.dumps(body, cls=SchemaEncoder)
+        entry = {
+            "Id": body.get("id"),
+            "MessageBody": body,
+            "MessageAttributes": message_attributes,
+        }
+
+        entries.append(entry)
+
+        if len(entries) == batch_size:
+            failed_list = send_batch_message(queue_url, entries)
+            entries_failed = [entry for entry in entries if entry["id"] in failed_list]
+            failed_messages.extend(entries_failed)
+            entries = []
+
+    if len(entries) > 0:
+        failed_list = send_batch_message(queue_url, entries)
+        entries_failed = [entry for entry in entries if entry["Id"] in failed_list]
+        failed_messages.extend(entries_failed)
+
+    return failed_messages
+
 
 def publish_message(queue_url, body, message_group_id=None):
     client = boto3.client("sqs")
