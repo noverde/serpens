@@ -16,40 +16,39 @@ initializers.setup()
 logger = logging.getLogger(__name__)
 
 
-def publish_message_batch(queue_url, messages, message_attributes={}):
+def publish_message_batch(queue_url, messages, message_group_id=None):
     """
-    Function that use boto3 to send batch messages
-
-    :param queue_url: - Queue Url to receive the messages
-    :param messages: list of dict containing messages for the queue body
-    :param messages: Dict containg all attributes
-
-    Example:
-        "MessageAttributes": {
-            "host": {"StringValue": "host", "DataType": "String"},
-        }
+    Function that use boto3 to send batch messages (max messages allowed is up to 10).
     """
-
-    MAX_MESSAGES_ALLOWED = 10
     client = boto3.client("sqs")
     entries = []
+    attributes = {}
 
     for message in messages:
-        body = json.dumps(message, cls=SchemaEncoder)
+        body = message["body"]
+        if isinstance(body, dict):
+            body = json.dumps(body, cls=SchemaEncoder)
+
+        params = {"QueueUrl": queue_url}
+
+        if queue_url.endswith(".fifo"):
+            params["MessageGroupId"] = message_group_id
+            params["MessageDeduplicationId"] = message_group_id
+
+        for attribute in message["attributes"]:
+            for key, value in attribute.items():
+                attributes[key] = {"StringValue": value["value"], "DataType": value["type"]}
+
         entry = {
             "Id": str(uuid4()),
             "MessageBody": body,
-            "MessageAttributes": message_attributes,
+            "MessageAttributes": attributes,
         }
 
         entries.append(entry)
 
-        if len(entries) == MAX_MESSAGES_ALLOWED:
-            client.send_message_batch(QueueUrl=queue_url, Entries=entries)
-            entries = []
-
-    if len(entries) > 0:
-        client.send_message_batch(QueueUrl=queue_url, Entries=entries)
+    params["Entries"] = entries
+    return client.send_message_batch(**params)
 
 
 def publish_message(queue_url, body, message_group_id=None):

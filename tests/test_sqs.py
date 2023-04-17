@@ -1,7 +1,9 @@
 import json
+import random
 import unittest
 from datetime import datetime
 from unittest.mock import patch
+from uuid import uuid4
 
 import sqs
 from sqs import Record
@@ -184,3 +186,57 @@ class TestSQSRecord(unittest.TestCase):
         record = Record(data)
 
         self.assertEqual(record.body, data["body"])
+
+
+class TestPublishMessageBatch(unittest.TestCase):
+    def setUp(self) -> None:
+        self.patch_boto3 = patch("sqs.boto3")
+        self.mock_boto3 = self.patch_boto3.start()
+        self.response = {
+            "Successful": [],
+            "Failed": [],
+        }
+        self.types = ["String", "Number", "Binary"]
+
+    def test_publish_message_succeeded(self):
+        queue_url = "test.fifo"
+        messages = []
+
+        for n in range(10):
+
+            attribute = {
+                f"attr_{n}": {
+                    "value": f"value{n}",
+                    "type": random.choice(self.types),
+                }
+            }
+
+            messages.append(
+                {"body": {f"message {n}": f"my message {n}"}, "attributes": [attribute]}
+            )
+
+        response = self.response
+
+        for message in messages:
+            uuid = str(uuid4)
+            response["Successful"].append(
+                {
+                    "Id": uuid,
+                    "MessageId": uuid,
+                    "MD5OfMessageBody": message["body"],
+                    "MD5OfMessageAttributes": message["attributes"],
+                    "MD5OfMessageSystemAttributes": "",
+                    "SequenceNumber": "",
+                }
+            )
+
+        mock_publish_message_batch = self.mock_boto3.client.return_value.send_message_batch
+        mock_publish_message_batch.return_value = response
+
+        response = sqs.publish_message_batch(queue_url, messages)
+
+        call_entries = mock_publish_message_batch.call_args.kwargs["Entries"]
+
+        self.assertEqual(mock_publish_message_batch.call_count, 1)
+        self.assertEqual(len(call_entries), 10)
+        self.assertEqual(response["Failed"], [])
