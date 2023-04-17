@@ -106,3 +106,47 @@ class TestValidatePix(unittest.TestCase):
         result = any(map(validators.validate_pix, values))
 
         self.assertFalse(result)
+
+
+class TestValidateName(unittest.TestCase):
+    def test_valid_name(self):
+        names = (
+            "MariaSilva",
+            "Maria da Silva",
+            "Marina Silva",
+            "Maria Silva",
+            "Maria G. Silva",
+            "Maria McDuffy",
+            "Getúlio Dornelles Vargas",
+            "Maria das Flores",
+            "John Smith",
+            "John D'Largy",
+            "John Doe-Smith",
+            "John Doe Smith",
+            "Hector Sausage-Hausen",
+            "Mathias d'Arras",
+            "Martin Luther King Jr.",
+            "Ai Wong",
+            "Chao Chang",
+            "Alzbeta Bara",
+            "Marcos Assunção",
+            "Maria da Silva e Silva",
+            "Juscelino Kubitschek de Oliveira",
+        )
+        for name in names:
+            self.assertTrue(validators.validate_name(name), name)
+
+    def test_invalid_name(self):
+        names = (
+            "0194353320",
+            "8993084000016",
+            "+559496916165",
+            "0 Chao Chang",
+            "0Chao Chang",
+            " Chao Chang",
+            "## Chao Chang",
+            "Æ Chao Chang",
+        )
+
+        for name in names:
+            self.assertFalse(validators.validate_name(name), name)
