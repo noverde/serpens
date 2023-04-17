@@ -4,6 +4,7 @@ from datetime import datetime
 from functools import wraps
 from json.decoder import JSONDecodeError
 from typing import Any, Dict, Union
+from uuid import uuid4
 
 import boto3
 
@@ -14,46 +15,41 @@ initializers.setup()
 
 logger = logging.getLogger(__name__)
 
-SQS_MESSAGE_BATCH_SIZE = 10
 
+def publish_message_batch(queue_url, messages, message_attributes={}):
+    """
+    Function that use boto3 to send batch messages
 
-def send_batch_message(queue_url, entries):
+    :param queue_url: - Queue Url to receive the messages
+    :param messages: list of dict containing messages for the queue body
+    :param messages: Dict containg all attributes
+
+    Example:
+        "MessageAttributes": {
+            "host": {"StringValue": "host", "DataType": "String"},
+        }
+    """
+
+    MAX_MESSAGES_ALLOWED = 10
     client = boto3.client("sqs")
-    response = client.send_message_batch(QueueUrl=queue_url, Entries=entries)
-    if "Failed" in response:
-        failed_ids = [msg["Id"] for msg in response["Failed"]]
-        return failed_ids
-
-
-def publish_message_batch(queue_url, messages, message_attributes={}, batch_size=10):
     entries = []
-    failed_messages = []
-    if batch_size >= SQS_MESSAGE_BATCH_SIZE:
-        batch_size = SQS_MESSAGE_BATCH_SIZE
 
-    for body in messages:
-        if isinstance(body, dict):
-            body = json.dumps(body, cls=SchemaEncoder)
+    for message in messages:
+        body = json.dumps(message, cls=SchemaEncoder)
         entry = {
-            "Id": body.get("id"),
+            "Id": str(uuid4()),
             "MessageBody": body,
             "MessageAttributes": message_attributes,
         }
 
         entries.append(entry)
 
-        if len(entries) == batch_size:
-            failed_list = send_batch_message(queue_url, entries)
-            entries_failed = [entry for entry in entries if entry["id"] in failed_list]
-            failed_messages.extend(entries_failed)
+        if len(entries) == MAX_MESSAGES_ALLOWED:
+            client.send_message_batch(QueueUrl=queue_url, Entries=entries)
             entries = []
 
     if len(entries) > 0:
-        failed_list = send_batch_message(queue_url, entries)
-        entries_failed = [entry for entry in entries if entry["Id"] in failed_list]
-        failed_messages.extend(entries_failed)
-
-    return failed_messages
+        client.send_message_batch(QueueUrl=queue_url, Entries=entries)
 
 
 def publish_message(queue_url, body, message_group_id=None):
