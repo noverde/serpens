@@ -67,9 +67,8 @@ def publish_message_batch(queue_url, messages, message_group_id=None):
     return client.send_message_batch(**params)
 
 
-def publish_message(queue_url, body, message_group_id=None, attributes={}):
+def publish_message(queue_url, body, message_group_id=None):
     client = boto3.client("sqs")
-    message_attributes = {}
 
     if isinstance(body, dict):
         body = json.dumps(body, cls=SchemaEncoder)
@@ -79,12 +78,6 @@ def publish_message(queue_url, body, message_group_id=None, attributes={}):
     if queue_url.endswith(".fifo"):
         params["MessageGroupId"] = message_group_id
         params["MessageDeduplicationId"] = message_group_id
-
-    for key, value in attributes.items():
-        message_attributes[key] = get_attributes(value)
-
-    if message_attributes:
-        params["MessageAttributes"] = message_attributes
 
     return client.send_message(**params)
 
