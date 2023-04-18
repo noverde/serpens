@@ -134,7 +134,8 @@ class TestValidateName(unittest.TestCase):
             "Juscelino Kubitschek de Oliveira",
         )
         for name in names:
-            self.assertTrue(validators.validate_name(name), name)
+            with self.subTest(msg=name):
+                self.assertTrue(validators.validate_name(name))
 
     def test_invalid_name(self):
         names = (
@@ -149,4 +150,5 @@ class TestValidateName(unittest.TestCase):
         )
 
         for name in names:
-            self.assertFalse(validators.validate_name(name), name)
+            with self.subTest(msg=name):
+                self.assertFalse(validators.validate_name(name))
