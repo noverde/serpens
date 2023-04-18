@@ -5,7 +5,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import sqs
-from sqs import Record, build_message_attributes, get_attributes
+from sqs import Record, build_message_attributes
 
 
 class TestPublishMessage(unittest.TestCase):
@@ -295,34 +295,7 @@ class TestPublishMessageBatch(unittest.TestCase):
         self.assertEqual(len(response["Failed"]), 2)
 
 
-class TestGetAttributesFunction(unittest.TestCase):
-    def test_get_attributes_success(self):
-        cases = {
-            "String": "this is a string",
-            "Number": 123,
-            "Binary": b"this is a byte",
-        }
-
-        for obj_type, obj in cases.items():
-            # When the type is number StringValue should be used
-            prefix_type = obj_type if obj_type != "Number" else "String"
-
-            with self.subTest(use_case=obj_type):
-                expected_response = {f"{prefix_type}Value": obj, "DataType": obj_type}
-
-                attributes = get_attributes(obj)
-
-                self.assertEqual(expected_response, attributes)
-
-    def test_get_attributes_exception(self):
-
-        obj = datetime.now()
-
-        message = f"Invalid data type for attribute {obj}"
-
-        with self.assertRaisesRegex(ValueError, message):
-            get_attributes(obj)
-
+class TestBuildAttributesFunction(unittest.TestCase):
     def test_build_message_attributes(self):
         attributes = {
             "String": "this is a string",
@@ -337,3 +310,14 @@ class TestGetAttributesFunction(unittest.TestCase):
         message_Attributes = build_message_attributes(attributes)
 
         self.assertDictEqual(expected_message_attributes, message_Attributes)
+
+    def test_build_attributes_exception(self):
+        value = datetime.now()
+        attributes = {
+            "Date": value,
+        }
+
+        message = f"Invalid data type for attribute {value}"
+
+        with self.assertRaisesRegex(ValueError, message):
+            build_message_attributes(attributes)

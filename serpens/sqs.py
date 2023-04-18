@@ -17,22 +17,19 @@ initializers.setup()
 logger = logging.getLogger(__name__)
 
 
-def get_attributes(obj):
-    if isinstance(obj, str):
-        return {"StringValue": obj, "DataType": "String"}
-    elif isinstance(obj, numbers.Number):
-        return {"StringValue": obj, "DataType": "Number"}
-    elif isinstance(obj, bytes):
-        return {"BinaryValue": obj, "DataType": "Binary"}
-    else:
-        raise ValueError(f"Invalid data type for attribute {obj}")
-
-
 def build_message_attributes(attributes):
     message_attributes = {}
 
     for key, value in attributes.items():
-        message_attributes[key] = get_attributes(value)
+        if isinstance(value, str):
+            attributes = {"StringValue": value, "DataType": "String"}
+        elif isinstance(value, numbers.Number):
+            attributes = {"StringValue": value, "DataType": "Number"}
+        elif isinstance(value, bytes):
+            attributes = {"BinaryValue": value, "DataType": "Binary"}
+        else:
+            raise ValueError(f"Invalid data type for attribute {value}")
+        message_attributes[key] = attributes
     return message_attributes
 
 
