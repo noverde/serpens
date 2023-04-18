@@ -233,6 +233,12 @@ class TestPublishMessageBatch(unittest.TestCase):
                 }
             )
 
+        expected_message_1_attributes = {
+            "key1": {"StringValue": "value1", "DataType": "String"},
+            "key2": {"StringValue": 123, "DataType": "Number"},
+            "key3": {"BinaryValue": b"binary data", "DataType": "Binary"},
+        }
+
         mock_publish_message_batch = self.mock_boto3.client.return_value.send_message_batch
         mock_publish_message_batch.return_value = response
 
@@ -240,9 +246,12 @@ class TestPublishMessageBatch(unittest.TestCase):
 
         call_entries = mock_publish_message_batch.call_args.kwargs["Entries"]
 
+        message_1 = [m for m in call_entries if m["MessageBody"] == "message 1"][0]
+
         self.assertEqual(mock_publish_message_batch.call_count, 1)
         self.assertEqual(len(call_entries), 2)
         self.assertEqual(response["Failed"], [])
+        self.assertDictEqual(message_1["MessageAttributes"], expected_message_1_attributes)
 
     def test_publish_message_fail(self):
         response = self.response
@@ -271,7 +280,6 @@ class TestPublishMessageBatch(unittest.TestCase):
 
 class TestGetAttributesFunction(unittest.TestCase):
     def test_get_attributes_success(self):
-
         cases = {
             "String": "this is a string",
             "Number": 123,
@@ -281,6 +289,7 @@ class TestGetAttributesFunction(unittest.TestCase):
         for obj_type, obj in cases.items():
             # When the type is number StringValue should be used
             prefix_type = obj_type if obj_type != "Number" else "String"
+
             with self.subTest(use_case=obj_type):
                 expected_response = {f"{prefix_type}Value": obj, "DataType": obj_type}
 
