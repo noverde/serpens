@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 from functools import wraps
 from json.decoder import JSONDecodeError
+import numbers
 from typing import Any, Dict, Union
 from uuid import uuid4
 
@@ -16,38 +17,46 @@ initializers.setup()
 logger = logging.getLogger(__name__)
 
 
+def get_attributes(obj):
+    if isinstance(obj, str):
+        return {"StringValue": obj, "DataType": "String"}
+    elif isinstance(obj, numbers.Number):
+        return {"StringValue": obj, "DataType": "Number"}
+    elif isinstance(obj, bytes):
+        return {"BinaryValue": obj, "DataType": "Binary"}
+    else:
+        raise ValueError(f"Invalid data type for attribute {obj}")
+
+
 def publish_message_batch(queue_url, messages, message_group_id=None):
     """
     Function that use boto3 to send batch messages (max messages allowed is up to 10).
+    @param messages: list[str]
     """
     client = boto3.client("sqs")
     entries = []
-    attributes = {}
+
+    params = {"QueueUrl": queue_url}
+
+    if queue_url.endswith(".fifo"):
+        params["MessageGroupId"] = message_group_id
+        params["MessageDeduplicationId"] = message_group_id
 
     for message in messages:
+        message_attributes = {}
+
         body = message["body"]
         if isinstance(body, dict):
             body = json.dumps(body, cls=SchemaEncoder)
 
-        params = {"QueueUrl": queue_url}
+        for key, value in message.get("attributes", {}).items():
+            message_attributes[key] = get_attributes(value)
 
-        if queue_url.endswith(".fifo"):
-            params["MessageGroupId"] = message_group_id
-            params["MessageDeduplicationId"] = message_group_id
-
-        for attribute in message["attributes"]:
-            for key, value in attribute.items():
-                attributes[key] = {"StringValue": value["value"], "DataType": value["type"]}
-
-        entry = {
-            "Id": str(uuid4()),
-            "MessageBody": body,
-            "MessageAttributes": attributes,
-        }
-
+        entry = {"Id": str(uuid4()), "MessageBody": body, "MessageAttributes": message_attributes}
         entries.append(entry)
 
     params["Entries"] = entries
+
     return client.send_message_batch(**params)
 
 

@@ -1,12 +1,11 @@
 import json
-import random
 import unittest
 from datetime import datetime
 from unittest.mock import patch
 from uuid import uuid4
 
 import sqs
-from sqs import Record
+from sqs import Record, get_attributes
 
 
 class TestPublishMessage(unittest.TestCase):
@@ -196,24 +195,29 @@ class TestPublishMessageBatch(unittest.TestCase):
             "Successful": [],
             "Failed": [],
         }
-        self.types = ["String", "Number", "Binary"]
 
     def test_publish_message_succeeded(self):
         queue_url = "test.fifo"
         messages = []
 
-        for n in range(10):
-
-            attribute = {
-                f"attr_{n}": {
-                    "value": f"value{n}",
-                    "type": random.choice(self.types),
-                }
-            }
-
-            messages.append(
-                {"body": {f"message {n}": f"my message {n}"}, "attributes": [attribute]}
-            )
+        messages = [
+            {
+                "body": "message 1",
+                "attributes": {
+                    "key1": "value1",
+                    "key2": 123,
+                    "key3": b"binary data",
+                },
+            },
+            {
+                "body": "message 2",
+                "attributes": {
+                    "key1": "value2",
+                    "key2": "123",
+                    "key3": 123456,
+                },
+            },
+        ]
 
         response = self.response
 
@@ -238,5 +242,34 @@ class TestPublishMessageBatch(unittest.TestCase):
         call_entries = mock_publish_message_batch.call_args.kwargs["Entries"]
 
         self.assertEqual(mock_publish_message_batch.call_count, 1)
-        self.assertEqual(len(call_entries), 10)
+        self.assertEqual(len(call_entries), 2)
         self.assertEqual(response["Failed"], [])
+
+
+class TestGetAttributesFunction(unittest.TestCase):
+    def test_get_attributes_success(self):
+
+        cases = {
+            "String": "this is a string",
+            "Number": 123,
+            "Binary": b"this is a byte",
+        }
+
+        for obj_type, obj in cases.items():
+            # When the type is number StringValue should be used
+            prefix_type = obj_type if obj_type != "Number" else "String"
+            with self.subTest(use_case=obj_type):
+                expected_response = {f"{prefix_type}Value": obj, "DataType": obj_type}
+
+                attributes = get_attributes(obj)
+
+                self.assertEqual(expected_response, attributes)
+
+    def test_get_attributes_exception(self):
+
+        obj = datetime.now()
+
+        message = f"Invalid data type for attribute {obj}"
+
+        with self.assertRaisesRegex(ValueError, message):
+            get_attributes(obj)
