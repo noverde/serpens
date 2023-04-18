@@ -49,10 +49,14 @@ def publish_message_batch(queue_url, messages, message_group_id=None):
         if isinstance(body, dict):
             body = json.dumps(body, cls=SchemaEncoder)
 
+        entry = {"Id": str(uuid4()), "MessageBody": body}
+
         for key, value in message.get("attributes", {}).items():
             message_attributes[key] = get_attributes(value)
 
-        entry = {"Id": str(uuid4()), "MessageBody": body, "MessageAttributes": message_attributes}
+        if message_attributes:
+            entry["MessageAttributes"] = message_attributes
+
         entries.append(entry)
 
     params["Entries"] = entries
