@@ -233,11 +233,24 @@ class TestPublishMessageBatch(unittest.TestCase):
                 }
             )
 
-        expected_message_1_attributes = {
-            "key1": {"StringValue": "value1", "DataType": "String"},
-            "key2": {"StringValue": 123, "DataType": "Number"},
-            "key3": {"BinaryValue": b"binary data", "DataType": "Binary"},
-        }
+        expected_entries = [
+            {
+                "MessageBody": "message 1",
+                "MessageAttributes": {
+                    "key1": {"StringValue": "value1", "DataType": "String"},
+                    "key2": {"StringValue": 123, "DataType": "Number"},
+                    "key3": {"BinaryValue": b"binary data", "DataType": "Binary"},
+                },
+            },
+            {
+                "MessageBody": "message 2",
+                "MessageAttributes": {
+                    "key1": {"StringValue": "value2", "DataType": "String"},
+                    "key2": {"StringValue": "123", "DataType": "String"},
+                    "key3": {"StringValue": 123456, "DataType": "Number"},
+                },
+            },
+        ]
 
         mock_publish_message_batch = self.mock_boto3.client.return_value.send_message_batch
         mock_publish_message_batch.return_value = response
@@ -246,18 +259,19 @@ class TestPublishMessageBatch(unittest.TestCase):
 
         call_entries = mock_publish_message_batch.call_args.kwargs["Entries"]
 
-        message_1 = [m for m in call_entries if m["MessageBody"] == "message 1"][0]
+        for entry in call_entries:
+            del entry["Id"]
 
         self.assertEqual(mock_publish_message_batch.call_count, 1)
         self.assertEqual(len(call_entries), 2)
         self.assertEqual(response["Failed"], [])
-        self.assertDictEqual(message_1["MessageAttributes"], expected_message_1_attributes)
+        self.assertListEqual(call_entries, expected_entries)
 
     def test_publish_message_fail(self):
         response = self.response
 
         for message in self.messages:
-            uuid = str(uuid4)
+            uuid = str(uuid4())
             response["Failed"].append(
                 {
                     "Id": uuid,
