@@ -196,11 +196,7 @@ class TestPublishMessageBatch(unittest.TestCase):
             "Failed": [],
         }
 
-    def test_publish_message_succeeded(self):
-        queue_url = "test.fifo"
-        messages = []
-
-        messages = [
+        self.messages = [
             {
                 "body": "message 1",
                 "attributes": {
@@ -219,9 +215,12 @@ class TestPublishMessageBatch(unittest.TestCase):
             },
         ]
 
+        self.queue_url = "test.fifo"
+
+    def test_publish_message_succeeded(self):
         response = self.response
 
-        for message in messages:
+        for message in self.messages:
             uuid = str(uuid4)
             response["Successful"].append(
                 {
@@ -237,13 +236,37 @@ class TestPublishMessageBatch(unittest.TestCase):
         mock_publish_message_batch = self.mock_boto3.client.return_value.send_message_batch
         mock_publish_message_batch.return_value = response
 
-        response = sqs.publish_message_batch(queue_url, messages)
+        response = sqs.publish_message_batch(self.queue_url, self.messages)
 
         call_entries = mock_publish_message_batch.call_args.kwargs["Entries"]
 
         self.assertEqual(mock_publish_message_batch.call_count, 1)
         self.assertEqual(len(call_entries), 2)
         self.assertEqual(response["Failed"], [])
+
+    def test_publish_message_fail(self):
+        response = self.response
+
+        for message in self.messages:
+            uuid = str(uuid4)
+            response["Failed"].append(
+                {
+                    "Id": uuid,
+                    "MessageId": uuid,
+                    "MD5OfMessageBody": message["body"],
+                    "MD5OfMessageAttributes": message["attributes"],
+                    "MD5OfMessageSystemAttributes": "",
+                    "SequenceNumber": "",
+                }
+            )
+
+        mock_publish_message_batch = self.mock_boto3.client.return_value.send_message_batch
+        mock_publish_message_batch.return_value = response
+
+        response = sqs.publish_message_batch(self.queue_url, self.messages)
+
+        self.assertEqual(mock_publish_message_batch.call_count, 1)
+        self.assertEqual(len(response["Failed"]), 2)
 
 
 class TestGetAttributesFunction(unittest.TestCase):

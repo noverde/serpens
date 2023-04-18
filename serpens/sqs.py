@@ -29,10 +29,6 @@ def get_attributes(obj):
 
 
 def publish_message_batch(queue_url, messages, message_group_id=None):
-    """
-    Function that use boto3 to send batch messages (max messages allowed is up to 10).
-    @param messages: list[str]
-    """
     client = boto3.client("sqs")
     entries = []
 
