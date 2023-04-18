@@ -41,7 +41,7 @@ def publish_message_batch(queue_url, messages, message_group_id=None):
     for message in messages:
         message_attributes = {}
 
-        body = message["body"]
+        body = message["body"] or {}
         if isinstance(body, dict):
             body = json.dumps(body, cls=SchemaEncoder)
 
