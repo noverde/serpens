@@ -9,68 +9,98 @@ from sqs import Record, build_message_attributes
 
 
 class TestPublishMessage(unittest.TestCase):
-    @patch("sqs.boto3")
-    def test_publish_message_succeeded(self, m_boto3):
-        queue_url = "test.fifo"
+    def setUp(self) -> None:
+        self.patch_boto3 = patch("sqs.boto3")
+        self.mock_boto3 = self.patch_boto3.start()
+        self.queue_url = "test.fifo"
+
+    def tearDown(self) -> None:
+        self.patch_boto3.stop()
+
+    def test_publish_message_succeeded(self):
+        queue_url = self.queue_url
         body = '{"message":"my message"}'
         message_group_id = "group-test-id"
 
         sqs.publish_message(queue_url, body, message_group_id)
 
-        m_boto3.client.assert_called_once_with("sqs")
-        m_boto3.client.return_value.send_message.assert_called_once_with(
+        self.mock_boto3.client.assert_called_once_with("sqs")
+        self.mock_boto3.client.return_value.send_message.assert_called_once_with(
             QueueUrl=queue_url,
             MessageBody='{"message":"my message"}',
             MessageGroupId=message_group_id,
             MessageDeduplicationId=message_group_id,
         )
 
-    @patch("sqs.boto3")
-    def test_publish_message_succeeded_dict_message(self, m_boto3):
-        queue_url = "test.fifo"
+    def test_publish_message_succeeded_dict_message(self):
+        queue_url = self.queue_url
         body = {"message": "my message"}
         message_group_id = "group-test-id"
 
         sqs.publish_message(queue_url, body, message_group_id)
 
-        m_boto3.client.assert_called_once_with("sqs")
-        m_boto3.client.return_value.send_message.assert_called_once_with(
+        self.mock_boto3.client.assert_called_once_with("sqs")
+        self.mock_boto3.client.return_value.send_message.assert_called_once_with(
             QueueUrl=queue_url,
             MessageBody='{"message": "my message"}',
             MessageGroupId=message_group_id,
             MessageDeduplicationId=message_group_id,
         )
 
-    @patch("sqs.boto3")
-    def test_publish_message_succeeded_dict_message_with_encoded_value(self, m_boto3):
-        queue_url = "test.fifo"
+    def test_publish_message_succeeded_dict_message_with_encoded_value(self):
+        queue_url = self.queue_url
         body = {"message": "my message", "sent_at": datetime(2022, 1, 1, 1)}
         message_group_id = "group-test-id"
 
         sqs.publish_message(queue_url, body, message_group_id)
 
-        m_boto3.client.assert_called_once_with("sqs")
-        m_boto3.client.return_value.send_message.assert_called_once_with(
+        self.mock_boto3.client.assert_called_once_with("sqs")
+        self.mock_boto3.client.return_value.send_message.assert_called_once_with(
             QueueUrl=queue_url,
             MessageBody='{"message": "my message", "sent_at": "2022-01-01T01:00:00"}',
             MessageGroupId=message_group_id,
             MessageDeduplicationId=message_group_id,
         )
 
-    @patch("sqs.boto3")
-    def test_publish_message_succeeded_str_message(self, m_boto3):
-        queue_url = "test.fifo"
+    def test_publish_message_succeeded_str_message(self):
+        queue_url = self.queue_url
         body = "try: import antigravity"
         message_group_id = "group-test-id"
 
         sqs.publish_message(queue_url, body, message_group_id)
 
-        m_boto3.client.assert_called_once_with("sqs")
-        m_boto3.client.return_value.send_message.assert_called_once_with(
+        self.mock_boto3.client.assert_called_once_with("sqs")
+        self.mock_boto3.client.return_value.send_message.assert_called_once_with(
             QueueUrl=queue_url,
             MessageBody="try: import antigravity",
             MessageGroupId=message_group_id,
             MessageDeduplicationId=message_group_id,
+        )
+
+    def test_publish_message_with_attributes(self):
+        queue_url = self.queue_url
+        body = {"key": "value"}
+        message_group_id = "group-test-id"
+        message_attributes = {
+            "key1": "value",
+            "key2": 123,
+            "key3": b"binary data",
+        }
+
+        expected_message_attributes = {
+            "key1": {"StringValue": "value", "DataType": "String"},
+            "key2": {"StringValue": 123, "DataType": "Number"},
+            "key3": {"BinaryValue": b"binary data", "DataType": "Binary"},
+        }
+        sqs.publish_message(queue_url, body, message_group_id, message_attributes)
+
+        self.mock_boto3.client.assert_called_once_with("sqs")
+        self.mock_boto3.client.return_value.send_message.assert_called_once_with(
+            QueueUrl=queue_url,
+            MessageBody=json.dumps(body),
+            MessageGroupId=message_group_id,
+            MessageDeduplicationId=message_group_id,
+            MessageAttributes=expected_message_attributes,
         )
 
 

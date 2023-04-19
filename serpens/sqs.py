@@ -64,13 +64,18 @@ def publish_message_batch(queue_url, messages, message_group_id=None):
     return client.send_message_batch(**params)
 
 
-def publish_message(queue_url, body, message_group_id=None):
+def publish_message(queue_url, body, message_group_id=None, attributes={}):
     client = boto3.client("sqs")
 
-    if isinstance(body, dict):
+    if not isinstance(body, str):
         body = json.dumps(body, cls=SchemaEncoder)
 
     params = {"QueueUrl": queue_url, "MessageBody": body}
+
+    message_attributes = build_message_attributes(attributes)
+
+    if message_attributes:
+        params["MessageAttributes"] = message_attributes
 
     if queue_url.endswith(".fifo"):
         params["MessageGroupId"] = message_group_id
