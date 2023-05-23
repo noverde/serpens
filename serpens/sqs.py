@@ -105,9 +105,11 @@ def handler(func):
             else:
                 if isinstance(result, dict) and "messageId" in result:
                     events_failed.append({"itemIdentifier": result["messageId"]})
-        result = {"batchItemFailures": events_failed}
-        logger.debug(f"Result data: {result}")
-        return result
+
+        if events_failed:
+            result = {"batchItemFailures": events_failed}
+            logger.debug(f"Result data: {result}")
+            return result
 
     return wrapper
 
