@@ -2,7 +2,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from serpens.elastic import logger
+from serpens.elastic import logger, set_transaction_result
 
 
 class TestElastic(unittest.TestCase):
@@ -32,3 +32,13 @@ class TestElastic(unittest.TestCase):
         del os.environ["ELASTIC_APM_SECRET_TOKEN"]
         self.m_capture_serverless.assert_called_once()
         self.m_capture_serverless.assert_called_with(self.function)
+
+    def test_set_transaction_result_with_elastic(self):
+        os.environ["ELASTIC_APM_SECRET_TOKEN"] = "123456"
+        set_transaction_result("Failure", False)
+        del os.environ["ELASTIC_APM_SECRET_TOKEN"]
+        self.mock_elastic.set_transaction_result.assert_called_once_with("Failure", override=False)
+
+    def test_set_transaction_result_without_elastic(self):
+        set_transaction_result("Failure", False)
+        self.mock_elastic.set_transaction_result.assert_not_called()

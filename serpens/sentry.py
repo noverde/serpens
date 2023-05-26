@@ -1,10 +1,13 @@
 import logging
 import os
 
-import sentry_sdk
-from sentry_sdk import Hub
-
 logger = logging.getLogger(__name__)
+
+try:
+    import sentry_sdk
+    from sentry_sdk import Hub
+except ImportError:
+    logger.warning("Unable to import sentry")
 
 
 def logger_exception(exception: Exception) -> None:

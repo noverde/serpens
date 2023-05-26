@@ -11,6 +11,7 @@ import boto3
 
 from serpens.schema import SchemaEncoder
 from serpens import initializers, elastic
+from serpens.sentry import FilteredEvent
 
 initializers.setup()
 
@@ -89,13 +90,21 @@ def handler(func):
     @elastic.logger
     def wrapper(event: dict, context: dict):
         logger.debug(f"Received data: {event}")
+        events_failed = []
+        for data in event["Records"]:
+            try:
+                result = func(Record(data))
+            except FilteredEvent:
+                elastic.set_transaction_result("failure", override=False)
+                events_failed.append({"itemIdentifier": data.get("messageId")})
+            else:
+                if isinstance(result, dict) and "messageId" in result:
+                    events_failed.append({"itemIdentifier": result["messageId"]})
 
-        try:
-            for data in event["Records"]:
-                func(Record(data))
-        except Exception as ex:
-            logger.exception(ex)
-            raise ex
+        if events_failed:
+            result = {"batchItemFailures": events_failed}
+            logger.debug(f"Result data: {result}")
+            return result
 
     return wrapper
 
