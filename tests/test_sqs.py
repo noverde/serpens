@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import sqs
 from sqs import Record, build_message_attributes
+from serpens.sentry import FilteredEvent
 
 
 class TestPublishMessage(unittest.TestCase):
@@ -152,6 +153,20 @@ class TestSQSHandler(unittest.TestCase):
             handler(event, self.context)
 
         self.assertIsInstance(ex.exception, KeyError)
+
+    def test_handler_failure_return(self):
+        @sqs.handler
+        def handler(message: Record):
+            raise FilteredEvent("Error")
+
+        message_id = str(uuid4())
+        self.event["Records"][0].update({"messageId": message_id})
+
+        result = handler(self.event, self.context)
+
+        self.assertIsNotNone(result["batchItemFailures"])
+        failure_items = [item["itemIdentifier"] for item in result["batchItemFailures"]]
+        self.assertTrue(message_id in failure_items)
 
 
 class TestSQSRecord(unittest.TestCase):
