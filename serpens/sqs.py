@@ -17,11 +17,6 @@ initializers.setup()
 
 logger = logging.getLogger(__name__)
 
-try:
-    import elasticapm
-except ImportError:
-    logger.warning("Unable to import elasticapm")
-
 
 def build_message_attributes(attributes):
     message_attributes = {}
@@ -100,7 +95,7 @@ def handler(func):
             try:
                 result = func(Record(data))
             except FilteredEvent:
-                elasticapm.set_transaction_result("failure", override=False)
+                elastic.set_transaction_result("failure", override=False)
                 events_failed.append({"itemIdentifier": data.get("messageId")})
             else:
                 if isinstance(result, dict) and "messageId" in result:

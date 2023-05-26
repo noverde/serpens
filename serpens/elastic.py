@@ -35,6 +35,11 @@ def capture_exception(exception, is_http_request=False):
             elasticapm.set_transaction_outcome(outcome="failure", override=False)
 
 
+def set_transaction_result(result, override=True):
+    if "ELASTIC_APM_SECRET_TOKEN" in os.environ:
+        elasticapm.set_transaction_result(result, override=override)
+
+
 def setup():
     if "ELASTIC_APM_SECRET_TOKEN" in os.environ:
         os.environ["ELASTIC_APM_SECRET_TOKEN"] = envvars.get("ELASTIC_APM_SECRET_TOKEN")
