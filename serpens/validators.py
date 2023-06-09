@@ -1,4 +1,5 @@
 import re
+from datetime import date
 from typing import List, Tuple
 from uuid import UUID
 
@@ -105,3 +106,12 @@ def validate_pix(value: str) -> bool:
 def validate_name(name: str) -> bool:
     match = re.match(r"^[^\d\W]{2}[\w.'\- ]{0,78}$", name)
     return match is not None
+
+
+def validate_date(value: str) -> bool:
+    try:
+        date.fromisoformat(value)
+
+        return True
+    except ValueError:
+        return False

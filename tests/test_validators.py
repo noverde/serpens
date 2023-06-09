@@ -152,3 +152,17 @@ class TestValidateName(unittest.TestCase):
         for name in names:
             with self.subTest(msg=name):
                 self.assertFalse(validators.validate_name(name))
+
+
+class TestValidateDate(unittest.TestCase):
+    def test_valid_date(self):
+        value = "2020-12-12"
+
+        self.assertTrue(validators.validate_date(value))
+
+    def test_invalid_date(self):
+        values = ("12-12-2020", "31/12/2020", "2020/12/12")
+
+        for value in values:
+            with self.subTest(msg=value):
+                self.assertFalse(validators.validate_date(value))
