@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass, fields, is_dataclass
 from datetime import date, datetime, time
 from decimal import Decimal
 from enum import Enum
+from typing import Union, get_origin
 from uuid import UUID
 
 
@@ -15,8 +16,12 @@ class Schema:
         for field in fields(self):
             if field.default is None and getattr(self, field.name) is None:
                 continue
-            if not isinstance(getattr(self, field.name), field.type):
-                msg = f"'{field.name}' must be of type {field.type.__name__}"
+
+            field_type = field.type
+            if get_origin(field_type) is Union:
+                field_type = field_type.__args__[0]
+            if not isinstance(getattr(self, field.name), field_type):
+                msg = f"'{field.name}' must be of type {field_type.__name__}"
                 errors.append(msg)
         if errors:
             raise TypeError(*errors)
@@ -40,16 +45,21 @@ class Schema:
             if field.name not in data or data[field.name] is None:
                 continue  # pragma: no cover
             # cast special types
-            if field.type in (date, datetime, time):
+            field_type = field.type
+            if get_origin(field_type) is Union:
+                field_type = field_type.__args__[0]
+
+            if field_type in (date, datetime, time):
                 if isinstance(data[field.name], str) and "Z" in data[field.name]:
                     data[field.name] = data[field.name].replace("Z", "")
-                data[field.name] = field.type.fromisoformat(data[field.name])
-            elif field.type in (Decimal, UUID):
-                data[field.name] = field.type(data[field.name])
-            elif issubclass(field.type, Enum):
-                data[field.name] = field.type(data[field.name])
-            elif is_dataclass(field.type):
-                data[field.name] = field.type.load(data[field.name])
+
+                data[field.name] = field_type.fromisoformat(data[field.name])
+            elif field_type in (Decimal, UUID):
+                data[field.name] = field_type(data[field.name])
+            elif issubclass(field_type, Enum):
+                data[field.name] = field_type(data[field.name])
+            elif is_dataclass(field_type):
+                data[field.name] = field_type.load(data[field.name])
 
         try:
             instance = cls(**data)
