@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass, fields, is_dataclass
 from datetime import date, datetime, time
 from decimal import Decimal
 from enum import Enum
-from typing import Union, get_origin
+from typing import Union, get_origin, get_args
 from uuid import UUID
 
 
@@ -19,7 +19,7 @@ class Schema:
 
             field_type = field.type
             if get_origin(field_type) is Union:
-                field_type = field_type.__args__[0]
+                field_type = get_args(field_type)[0]
             if not isinstance(getattr(self, field.name), field_type):
                 msg = f"'{field.name}' must be of type {field_type.__name__}"
                 errors.append(msg)
@@ -47,7 +47,7 @@ class Schema:
             # cast special types
             field_type = field.type
             if get_origin(field_type) is Union:
-                field_type = field_type.__args__[0]
+                field_type = get_args(field_type)[0]
 
             if field_type in (date, datetime, time):
                 if isinstance(data[field.name], str) and "Z" in data[field.name]:
