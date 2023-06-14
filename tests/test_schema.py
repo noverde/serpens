@@ -4,10 +4,10 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, TypeVar
+from typing import Optional, TypeVar, Union
 from uuid import UUID
 
-from schema import Schema
+from schema import Schema, SchemaUnsupportedTypeException
 
 
 class Level(Enum):
@@ -81,6 +81,11 @@ class TypeSchema(Schema):
 @dataclass
 class TypeSchemaOptional(Schema):
     A: Optional[TypeVar]
+
+
+@dataclass
+class SchemaWithUnsupportedType(Schema):
+    A: Union[int, str]
 
 
 class TestSchemaLoad(unittest.TestCase):
@@ -344,3 +349,13 @@ class TestSchema(unittest.TestCase):
                     type("foo", "bar")
 
                 self.assertEqual(error.exception.args, expected)
+
+
+class TestSchemaWithUnsupportedType(unittest.TestCase):
+    def test_none_attr(self):
+        expected = ("Unsupported typing.Union[int, str]. This is not equivalent to an Optional.",)
+
+        with self.assertRaises(SchemaUnsupportedTypeException) as error:
+            SchemaWithUnsupportedType.load({"A": 1})
+
+        self.assertEqual(error.exception.args, expected)

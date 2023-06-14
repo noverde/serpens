@@ -9,6 +9,10 @@ from typing import Union, get_origin, get_args
 from uuid import UUID
 
 
+class SchemaUnsupportedTypeException(Exception):
+    pass
+
+
 @dataclass
 class Schema:
     def __post_init__(self):
@@ -17,9 +21,8 @@ class Schema:
             if field.default is None and getattr(self, field.name) is None:
                 continue
 
-            field_type = field.type
-            if get_origin(field_type) is Union:
-                field_type = get_args(field_type)[0]
+            field_type = self._get_raw_type(field.type)
+
             if not isinstance(getattr(self, field.name), field_type):
                 msg = f"'{field.name}' must be of type {field_type.__name__}"
                 errors.append(msg)
@@ -45,9 +48,7 @@ class Schema:
             if field.name not in data or data[field.name] is None:
                 continue  # pragma: no cover
             # cast special types
-            field_type = field.type
-            if get_origin(field_type) is Union:
-                field_type = get_args(field_type)[0]
+            field_type = cls._get_raw_type(field.type)
 
             if field_type in (date, datetime, time):
                 if isinstance(data[field.name], str) and "Z" in data[field.name]:
@@ -78,6 +79,26 @@ class Schema:
             raise error
 
         return instance
+
+    @classmethod
+    def _get_raw_type(cls, field_type):
+        if get_origin(field_type) is not Union:
+            return field_type
+
+        none_class = type(None)
+        raw_type = None
+        amount_of_none = 0
+        for arg in get_args(field_type):
+            if arg == none_class:
+                amount_of_none += 1
+            else:
+                raw_type = arg
+
+        if amount_of_none != 1 or arg is None:
+            error_msg = f"Unsupported {str(field_type)}. This is not equivalent to an Optional."
+            raise SchemaUnsupportedTypeException(error_msg)
+
+        return raw_type
 
     @classmethod
     def loads(cls, json_string, many=False):
