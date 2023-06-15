@@ -353,7 +353,9 @@ class TestSchema(unittest.TestCase):
 
 class TestSchemaWithUnsupportedType(unittest.TestCase):
     def test_none_attr(self):
-        expected = ("Unsupported typing.Union[int, str]. This is not equivalent to an Optional.",)
+        expected = (
+            "Unsupported typing.Union[int, str]. This Union is not equivalent to an Optional.",
+        )
 
         with self.assertRaises(SchemaUnsupportedTypeException) as error:
             SchemaWithUnsupportedType.load({"A": 1})

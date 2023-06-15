@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass, fields, is_dataclass
 from datetime import date, datetime, time
 from decimal import Decimal
 from enum import Enum
-from typing import Union, get_origin, get_args
+from typing import Union
 from uuid import UUID
 
 
@@ -82,20 +82,24 @@ class Schema:
 
     @classmethod
     def _get_raw_type(cls, field_type):
-        if get_origin(field_type) is not Union:
+        if not hasattr(field_type, "__origin__") or field_type.__origin__ is not Union:
             return field_type
+
+        args = field_type.__args__
 
         none_class = type(None)
         raw_type = None
-        amount_of_none = 0
-        for arg in get_args(field_type):
+        has_none = False
+        for arg in args:
             if arg == none_class:
-                amount_of_none += 1
+                has_none = True
             else:
                 raw_type = arg
 
-        if amount_of_none != 1 or arg is None:
-            error_msg = f"Unsupported {str(field_type)}. This is not equivalent to an Optional."
+        if len(args) != 2 or not has_none or arg is None:
+            error_msg = (
+                f"Unsupported {str(field_type)}. This Union is not equivalent to an Optional."
+            )
             raise SchemaUnsupportedTypeException(error_msg)
 
         return raw_type
