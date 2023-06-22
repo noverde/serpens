@@ -19,7 +19,7 @@ class Level(Enum):
 
 @dataclass
 class NoneSchema(Schema):
-    foo: str = None
+    foo: str = field(default=None)
 
 
 @dataclass
@@ -41,8 +41,8 @@ class EmployeeSchema(Schema):
 
 @dataclass
 class SimpleSchema(Schema):
-    created_at: datetime = None
-    buzz: str = None
+    created_at: datetime = field(default=None)
+    buzz: str = field(default=None)
 
 
 @dataclass
