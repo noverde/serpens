@@ -1,0 +1,10 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  Publish:
+    uses: noverde/github-workflows/.github/workflows/publish_python_package@main
+    secrets: inherit
