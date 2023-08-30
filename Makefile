@@ -1,6 +1,5 @@
 # project settings
-PROJECT_NAME  := $(shell grep "name=" setup.py | cut -f2 -d'"')
-PROJECT_PATH  := $(PROJECT_NAME)
+PROJECT_PATH := serpens
 
 # venv settings
 export PYTHONPATH := $(PROJECT_PATH):tests/fixtures
@@ -17,17 +16,18 @@ endif
 
 .PHONY: .env .venv
 
-all:
+build:
+	python3.8 -m build
 
 .env:
 	echo 'PYTHONPATH="$(PYTHONPATH)"' > .env
 
 .venv:
 	python3.8 -m venv $(VIRTUALENV)
-	pip install --upgrade pip
+	$(VIRTUALENV)/bin/pip install --upgrade pip
 
 clean:
-	rm -rf dependencies .pytest_cache .coverage .aws-sam
+	rm -rf dependencies .pytest_cache .coverage .aws-sam build dist .mypy_cache *.egg-info
 	find $(PROJECT_PATH) -name __pycache__ | xargs rm -rf
 	find tests -name __pycache__ | xargs rm -rf
 
@@ -36,10 +36,10 @@ install-hook:
 	@chmod +x .git/hooks/pre-commit
 
 install-dev: .venv .env install install-hook
-	if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+	if [ -f requirements-dev.txt ]; then $(VIRTUALENV)/bin/pip install -r requirements-dev.txt; fi
 
 install:
-	if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+	if [ -f requirements.txt ]; then $(VIRTUALENV)/bin/pip install -r requirements.txt; fi
 
 lint:
 	black --line-length=100 --target-version=py38 --check .
