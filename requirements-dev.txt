@@ -2,6 +2,7 @@ coverage==6.2
 black==22.3.0
 flake8==4.0.1
 build==0.10.0
+twine==4.0.2
 
 boto3==1.20.26
 pony==0.7.14
