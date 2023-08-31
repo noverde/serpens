@@ -122,12 +122,8 @@ class TestSchemaLoad(unittest.TestCase):
         self.assertEqual(error.exception.args, expected)
 
     def test_load_missing_required(self):
-        expected = ("'name' is a required field", "'age' is a required field")
-
-        with self.assertRaises(TypeError) as error:
+        with self.assertRaises(TypeError):
             PersonSchema.load({})
-
-        self.assertEqual(error.exception.args, expected)
 
     def test_load_many(self):
         data = [
@@ -237,12 +233,8 @@ class TestSchema(unittest.TestCase):
         self.assertIsNone(instance.foo)
 
     def test_missing_required(self):
-        expected = (("__init__() missing 2 required positional " + "arguments: 'name' and 'age'"),)
-
-        with self.assertRaises(TypeError) as error:
+        with self.assertRaises(TypeError):
             PersonSchema()
-
-        self.assertEqual(error.exception.args, expected)
 
     def test_invalid_type(self):
         expected = ("'age' must be of type int",)

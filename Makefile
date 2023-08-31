@@ -17,14 +17,14 @@ endif
 .PHONY: .env .venv
 
 build:
-	python3.8 -m build
+	python -m build
 
 .env:
 	echo 'PYTHONPATH="$(PYTHONPATH)"' > .env
 
 .venv:
-	python3.8 -m venv $(VIRTUALENV)
-	$(VIRTUALENV)/bin/pip install --upgrade pip
+	python -m venv $(VIRTUALENV)
+	pip install --upgrade pip
 
 clean:
 	rm -rf dependencies .pytest_cache .coverage .aws-sam build dist .mypy_cache *.egg-info
@@ -32,14 +32,14 @@ clean:
 	find tests -name __pycache__ | xargs rm -rf
 
 install-hook:
-	@echo "make lint" > .git/hooks/pre-commit
-	@chmod +x .git/hooks/pre-commit
+	echo "make lint" > .git/hooks/pre-commit
+	chmod +x .git/hooks/pre-commit
 
 install-dev: .venv .env install install-hook
-	if [ -f requirements-dev.txt ]; then $(VIRTUALENV)/bin/pip install -r requirements-dev.txt; fi
+	if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
 
 install:
-	if [ -f requirements.txt ]; then $(VIRTUALENV)/bin/pip install -r requirements.txt; fi
+	if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
 lint:
 	black --line-length=100 --target-version=py38 --check .
@@ -53,3 +53,6 @@ test:
 
 coverage: test .coverage
 	coverage report -m --fail-under=90
+
+check:
+	twine check dist/*
