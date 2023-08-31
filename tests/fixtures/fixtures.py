@@ -2,7 +2,6 @@ import cache
 
 
 class ClsCached:
-
     counter_cls = 0
     counter_self = 0
 

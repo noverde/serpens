@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 import boto3
-from moto import mock_dynamodb2
+from moto import mock_dynamodb
+
 from serpens import document
 
 
@@ -17,7 +18,7 @@ class MyDocument(document.BaseDocument):
 
 
 class TestBaseDocument(unittest.TestCase):
-    m_dynamodb = mock_dynamodb2()
+    m_dynamodb = mock_dynamodb()
 
     @classmethod
     def setUpClass(cls):
@@ -28,6 +29,7 @@ class TestBaseDocument(unittest.TestCase):
             TableName="my_document",
             AttributeDefinitions=[{"AttributeName": "id", "AttributeType": "S"}],
             KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
+            BillingMode="PAY_PER_REQUEST",
         )
 
         table.put_item(Item={"id": "2", "name": "Test2", "average": Decimal(15)})
