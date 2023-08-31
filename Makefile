@@ -53,3 +53,6 @@ test:
 
 coverage: test .coverage
 	coverage report -m --fail-under=90
+
+check:
+	twine check dist/*
