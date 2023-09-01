@@ -2,7 +2,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from serpens.elastic import logger, set_transaction_result
+from serpens import elastic
 
 
 class TestElastic(unittest.TestCase):
@@ -21,24 +21,31 @@ class TestElastic(unittest.TestCase):
     def test_logger_decorator_not_called(self):
         event, context = {}, {}
 
-        logger(self.function)(event, context)
+        elastic.logger(self.function)(event, context)
         self.m_capture_serverless.assert_not_called()
 
     def test_logger_decorator_called(self):
         os.environ["ELASTIC_APM_SECRET_TOKEN"] = "123456"
         event, context = {}, {"key": "value"}
 
-        logger(self.function)(event, context)
+        elastic.logger(self.function)(event, context)
         del os.environ["ELASTIC_APM_SECRET_TOKEN"]
         self.m_capture_serverless.assert_called_once()
         self.m_capture_serverless.assert_called_with(self.function)
 
     def test_set_transaction_result_with_elastic(self):
         os.environ["ELASTIC_APM_SECRET_TOKEN"] = "123456"
-        set_transaction_result("Failure", False)
+        elastic.set_transaction_result("Failure", False)
         del os.environ["ELASTIC_APM_SECRET_TOKEN"]
         self.mock_elastic.set_transaction_result.assert_called_once_with("Failure", override=False)
 
     def test_set_transaction_result_without_elastic(self):
-        set_transaction_result("Failure", False)
+        elastic.set_transaction_result("Failure", False)
         self.mock_elastic.set_transaction_result.assert_not_called()
+
+    @patch.dict(os.environ, ELASTIC_APM_SECRET_TOKEN="123456")
+    def test_setup(self):
+        elastic.setup()
+
+        self.assertIn("ELASTIC_APM_SECRET_TOKEN", os.environ)
+        self.assertIn("AWS_LAMBDA_EXEC_WRAPPER", os.environ)

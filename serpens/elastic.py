@@ -1,7 +1,8 @@
-import sys
-import os
 import logging
+import os
+import sys
 from functools import wraps
+
 from serpens import envvars
 
 logger = logging.getLogger(__name__)
@@ -43,3 +44,4 @@ def set_transaction_result(result, override=True):
 def setup():
     if "ELASTIC_APM_SECRET_TOKEN" in os.environ:
         os.environ["ELASTIC_APM_SECRET_TOKEN"] = envvars.get("ELASTIC_APM_SECRET_TOKEN")
+        os.environ["AWS_LAMBDA_EXEC_WRAPPER"] = "/opt/python/bin/elasticapm-lambda"
