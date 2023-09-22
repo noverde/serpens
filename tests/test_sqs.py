@@ -1,3 +1,4 @@
+import copy
 import json
 import unittest
 from datetime import datetime
@@ -265,7 +266,7 @@ class TestPublishMessageBatch(unittest.TestCase):
     def tearDown(self) -> None:
         self.patch_boto3.stop()
 
-    def test_publish_message_succeeded(self):
+    def test_publish_message_batch_succeeded(self):
         response = self.response
 
         for message in self.messages:
@@ -303,7 +304,7 @@ class TestPublishMessageBatch(unittest.TestCase):
         mock_publish_message_batch = self.mock_boto3.client.return_value.send_message_batch
         mock_publish_message_batch.return_value = response
 
-        response = sqs.publish_message_batch(self.queue_url, self.messages)
+        result = sqs.publish_message_batch(self.queue_url, self.messages)
 
         call_entries = mock_publish_message_batch.call_args.kwargs["Entries"]
 
@@ -312,10 +313,43 @@ class TestPublishMessageBatch(unittest.TestCase):
 
         self.assertEqual(mock_publish_message_batch.call_count, 1)
         self.assertEqual(len(call_entries), 2)
-        self.assertEqual(response["Failed"], [])
+        self.assertEqual(result[0]["Failed"], [])
         self.assertListEqual(call_entries, expected_entries)
 
-    def test_publish_message_fail(self):
+    def test_publish_message_batch_called_more_than_once(self):
+        response = self.response
+        responses = []
+
+        messages = [{"body": f"message {i}"} for i in range(30)]
+
+        for message in messages:
+            uuid = str(uuid4)
+            response["Successful"].append(
+                {
+                    "Id": uuid,
+                    "MessageId": uuid,
+                    "MD5OfMessageBody": message["body"],
+                    "MD5OfMessageAttributes": None,
+                    "MD5OfMessageSystemAttributes": "",
+                    "SequenceNumber": "",
+                }
+            )
+
+        for index in range(0, len(response["Successful"]), 10):
+            response_copy = copy.deepcopy(response)
+            response_copy["Successful"] = response["Successful"][index : index + 10]  # noqa
+            responses.append(response_copy)
+
+        mock_publish_message_batch = self.mock_boto3.client.return_value.send_message_batch
+        mock_publish_message_batch.side_effect = responses
+
+        result = sqs.publish_message_batch(self.queue_url, messages)
+
+        self.assertEqual(mock_publish_message_batch.call_count, 3)
+        self.assertEqual(result[0]["Failed"], [])
+        self.assertEqual(len(result[0]["Successful"]), 10)
+
+    def test_publish_message_batch_fail(self):
         response = self.response
 
         for message in self.messages:
@@ -337,7 +371,8 @@ class TestPublishMessageBatch(unittest.TestCase):
         response = sqs.publish_message_batch(self.queue_url, self.messages)
 
         self.assertEqual(mock_publish_message_batch.call_count, 1)
-        self.assertEqual(len(response["Failed"]), 2)
+        self.assertEqual(len(response), 1)
+        self.assertEqual(len(response[0]["Failed"]), 2)
 
 
 class TestBuildAttributesFunction(unittest.TestCase):

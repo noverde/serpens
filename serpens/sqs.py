@@ -17,6 +17,8 @@ initializers.setup()
 
 logger = logging.getLogger(__name__)
 
+MAX_BATCH_SIZE = 10
+
 
 def build_message_attributes(attributes):
     message_attributes = {}
@@ -37,6 +39,7 @@ def build_message_attributes(attributes):
 def publish_message_batch(queue_url, messages, message_group_id=None):
     client = boto3.client("sqs")
     entries = []
+    result = []
 
     params = {"QueueUrl": queue_url}
 
@@ -60,9 +63,18 @@ def publish_message_batch(queue_url, messages, message_group_id=None):
 
         entries.append(entry)
 
-    params["Entries"] = entries
+        if len(entries) == MAX_BATCH_SIZE:
+            params["Entries"] = entries
+            sent_message = client.send_message_batch(**params)
+            result.append(sent_message)
+            entries = []
 
-    return client.send_message_batch(**params)
+    if entries:
+        params["Entries"] = entries
+        sent_message = client.send_message_batch(**params)
+        result.append(sent_message)
+
+    return result
 
 
 def publish_message(queue_url, body, message_group_id=None, attributes={}):
