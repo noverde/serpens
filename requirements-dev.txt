@@ -7,6 +7,6 @@ twine==4.0.2
 boto3==1.28.57
 pony==0.7.17
 moto==4.2.5
-sentry-sdk==1.30.0
+sentry-sdk==1.31.0
 yoyo-migrations==8.2.0
 elastic_apm==6.18.0
