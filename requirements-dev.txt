@@ -1,4 +1,4 @@
-coverage==7.3.0
+coverage==7.3.2
 black==23.9.1
 flake8==6.1.0
 build==1.0.3
