@@ -1,30 +1,17 @@
 from elasticapm.conf.constants import ERROR, TRANSACTION
-from elasticapm.processors import for_events, BASE_SANITIZE_FIELD_NAMES, MASK, varmap
+from elasticapm.processors import for_events, MASK, varmap
 
 
-def _sanitize_var(key, value, **kwargs):
-    # This function was copied from elasticapm.processors._sanitize
-
-    if "sanitize_field_names" in kwargs:
-        sanitize_field_names = kwargs["sanitize_field_names"]
-    else:
-        sanitize_field_names = BASE_SANITIZE_FIELD_NAMES
-
+def _sanitize_var(key, value, sanitize_field_names):
     if value is None:
-        return
+        return None
 
-    if isinstance(value, dict):
-        # varmap will call _sanitize on each k:v pair of the dict, so we don't
-        # have to do anything with dicts here
+    if not key or isinstance(value, dict):
         return value
 
-    if not key:  # key can be a NoneType
-        return value
-
-    key = key.lower()
+    key = key.lower().strip()
     for field in sanitize_field_names:
-        if field.match(key.strip()):
-            # store mask as a fixed length for security
+        if field.match(key):
             return MASK
 
     return value
@@ -32,7 +19,10 @@ def _sanitize_var(key, value, **kwargs):
 
 @for_events(ERROR, TRANSACTION)
 def sanitize(client, event):
-    body = event["context"]["request"]["body"]
+    body = None
+
+    if "context" in event and "request" in event["context"]:
+        body = event["context"]["request"].get("body")
 
     if not isinstance(body, dict):
         return event

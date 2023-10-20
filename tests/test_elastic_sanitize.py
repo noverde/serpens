@@ -50,28 +50,30 @@ class TestElasticSanitize(unittest.TestCase):
 
         self.assertDictEqual(event_expected, event)
 
-    def test_sanitize_querystring(self):
-        event = {
-            "context": {
-                "request": {
-                    "method": "POST",
-                    "body": "test=test&password=32312",
+    def test_sanitize_ignore(self):
+        events = [
+            {
+                "context": {
+                    "request": {"method": "POST", "body": "test=test&password=32312"},
                 },
             },
-        }
-        event_expected = deepcopy(event)
+            {"context": {"request": {"method": "POST", "body": None}}},
+            {"context": {"request": {"method": "POST"}}},
+            {"context": {}},
+            {},
+        ]
+        for event in events:
+            with self.subTest(use_case=event):
+                event_expected = deepcopy(event)
+                sanitize(self._client, event)
 
-        sanitize(self._client, event)
-
-        self.assertDictEqual(event_expected, event)
+                self.assertDictEqual(event_expected, event)
 
     def test_sanitize_var_mask(self):
         fields_names_rules = ["*password*", "document"]
         fields_names = [starmatch_to_regex(x) for x in fields_names_rules]
 
         inputs = (
-            {"key": "pAsSwOrD", "value": "12345"},
-            {"key": "PASSWORD", "value": "12345"},
             {"key": "PASSWORD_USER", "value": "12345", "sanitize_field_names": fields_names},
             {"key": "DoCuMeNt", "value": "12345", "sanitize_field_names": fields_names},
         )
@@ -82,12 +84,19 @@ class TestElasticSanitize(unittest.TestCase):
 
                 self.assertEqual(value, MASK)
 
-    def test_sanitize_keep_value(self):
+    def test_sanitize_var_keep_value(self):
+        fields_names_rules = ["*password*", "document"]
+        fields_names = [starmatch_to_regex(x) for x in fields_names_rules]
+
         inputs = (
-            {"key": "custom", "value": "12345"},
-            {"key": None, "value": "12345"},
-            {"key": "PASSWORD", "value": None},
-            {"key": "PASSWORD", "value": {"PASSWORD": "12345"}},
+            {"key": "custom", "value": "12345", "sanitize_field_names": fields_names},
+            {"key": None, "value": "12345", "sanitize_field_names": fields_names},
+            {"key": "PASSWORD", "value": None, "sanitize_field_names": fields_names},
+            {
+                "key": "PASSWORD",
+                "value": {"PASSWORD": "12345"},
+                "sanitize_field_names": fields_names,
+            },
         )
 
         for input in inputs:
