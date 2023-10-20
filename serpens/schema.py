@@ -56,9 +56,10 @@ class Schema:
         except TypeError as error:
             message = error.args[0] if error.args else ""
             pattern = (
-                r"^__init__\(\) missing \d+ required positional "
+                r"^(\w+\.)?__init__\(\) missing \d+ required positional "
                 r"arguments?: ('\w+',?\s?(and\s?)?)+$"
             )
+            pattern = r".*missing \d+ required positional argument.*"
 
             if re.fullmatch(pattern, message):
                 matchs = re.findall(r"('\w+')", message)
