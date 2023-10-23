@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from serpens.elastic import logger, set_transaction_result, _setup_sanitize
+from serpens.elastic import logger, set_transaction_result, setup
 
 
 class TestElastic(unittest.TestCase):
@@ -20,6 +20,7 @@ class TestElastic(unittest.TestCase):
 
     def tearDown(self):
         self.elastic_patcher.stop()
+        self.os_patcher.stop()
 
     def test_logger_decorator_not_called(self):
         event, context = {}, {}
@@ -44,34 +45,11 @@ class TestElastic(unittest.TestCase):
         set_transaction_result("Failure", False)
         self.mock_elastic.set_transaction_result.assert_not_called()
 
-    def test_setup_sanitize(self):
-        self.os_mock.environ["SERPENS_EXTRA_SANATIZE_FIELD_NAMES"] = "custom_attr"
+    def test_setup(self):
+        self.os_mock.environ["ELASTIC_APM_SECRET_TOKEN"] = "123456"
+        setup()
 
-        _setup_sanitize()
+        apm_processors = self.os_mock.environ.get("ELASTIC_APM_PROCESSORS")
 
-        field_names = (
-            "password,"
-            "passwd,"
-            "pwd,"
-            "secret,"
-            "*key,"
-            "*token*,"
-            "*session*,"
-            "*credit*,"
-            "*card*,"
-            "*auth*,"
-            "set-cookie,"
-            "document,"
-            "cpf,"
-            "custom_attr"
-        )
-
-        self.assertEqual(self.os_mock.environ["ELASTIC_APM_SANITIZE_FIELD_NAMES"], field_names)
-
-    def test_setup_sanitize_redefine_field_names(self):
-        field_names = "custom_attr"
-        self.os_mock.environ["ELASTIC_APM_SANITIZE_FIELD_NAMES"] = field_names
-
-        _setup_sanitize()
-
-        self.assertEqual(self.os_mock.environ["ELASTIC_APM_SANITIZE_FIELD_NAMES"], field_names)
+        self.assertIsNotNone(apm_processors)
+        self.assertTrue("serpens.elastic_sanitize.sanitize" in apm_processors)
