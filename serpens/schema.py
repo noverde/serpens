@@ -56,7 +56,7 @@ class Schema:
         except TypeError as error:
             message = error.args[0] if error.args else ""
             pattern = (
-                r"^__init__\(\) missing \d+ required positional "
+                r"^(\w+\.)?__init__\(\) missing \d+ required positional "
                 r"arguments?: ('\w+',?\s?(and\s?)?)+$"
             )
 
