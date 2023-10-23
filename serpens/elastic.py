@@ -43,3 +43,12 @@ def set_transaction_result(result, override=True):
 def setup():
     if "ELASTIC_APM_SECRET_TOKEN" in os.environ:
         os.environ["ELASTIC_APM_SECRET_TOKEN"] = envvars.get("ELASTIC_APM_SECRET_TOKEN")
+
+        os.environ["ELASTIC_APM_PROCESSORS"] = (
+            "serpens.elastic_sanitize.sanitize,"
+            "elasticapm.processors.sanitize_stacktrace_locals,"
+            "elasticapm.processors.sanitize_http_request_cookies,"
+            "elasticapm.processors.sanitize_http_headers,"
+            "elasticapm.processors.sanitize_http_wsgi_env,"
+            "elasticapm.processors.sanitize_http_request_body"
+        )
