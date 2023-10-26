@@ -24,6 +24,8 @@ def handler(func):
             result = func(request)
 
             if isinstance(result, Response):
+                elastic.capture_response(result.body)
+
                 return result.to_dict()
 
             response = Response()
@@ -35,10 +37,13 @@ def handler(func):
             if is_dataclass(result):
                 result = asdict(result)
 
+            elastic.capture_response(result)
+
             if isinstance(result, (dict, list)):
                 result = json.dumps(result, cls=SchemaEncoder)
 
             response.body = result
+
             return response.to_dict()
         except Exception as ex:
             logger_exception(ex)

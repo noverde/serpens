@@ -1,7 +1,10 @@
-import unittest
+from elasticapm.processors import MASK
+from elasticapm.utils import starmatch_to_regex
+from serpens import elastic
+from serpens.elastic import logger, set_transaction_result, setup, capture_response
 from unittest.mock import patch
-
-from serpens.elastic import logger, set_transaction_result, setup
+import json
+import unittest
 
 
 class TestElastic(unittest.TestCase):
@@ -47,9 +50,51 @@ class TestElastic(unittest.TestCase):
 
     def test_setup(self):
         self.os_mock.environ["ELASTIC_APM_SECRET_TOKEN"] = "123456"
+        self.os_mock.environ["SERPENS_RESPONSE_SANITIZE_FIELD_NAMES"] = "password,passwd"
         setup()
 
         apm_processors = self.os_mock.environ.get("ELASTIC_APM_PROCESSORS")
 
         self.assertIsNotNone(apm_processors)
         self.assertTrue("serpens.elastic_sanitize.sanitize" in apm_processors)
+        expected_fieds = [starmatch_to_regex(x) for x in ("password", "passwd")]
+        self.assertEqual(elastic._response_sanitize_fields, expected_fieds)
+
+    def test_capture_response_string(self):
+        self.os_mock.environ["ELASTIC_APM_SECRET_TOKEN"] = "123456"
+        setup()
+
+        bodies = [
+            "Test body.",
+            "[]Test body.",
+            "{Test body.",
+        ]
+
+        for body in bodies:
+            capture_response(body)
+            self.mock_elastic.set_custom_context.assert_not_called()
+
+    def test_capture_response_json_string(self):
+        self.os_mock.environ["ELASTIC_APM_SECRET_TOKEN"] = "123456"
+        setup()
+
+        body = '{"name":"Test", "password":12345}'
+        expected = json.dumps({"name": "Test", "password": MASK})
+
+        capture_response(body)
+        self.mock_elastic.set_custom_context.assert_called_once_with({"response_body": expected})
+
+    def test_capture_response(self):
+        self.os_mock.environ["ELASTIC_APM_SECRET_TOKEN"] = "123456"
+        setup()
+
+        body = {"name": "Test", "password": 12345}
+        expected = json.dumps({"name": "Test", "password": MASK})
+
+        capture_response(body)
+        self.mock_elastic.set_custom_context.assert_called_once_with({"response_body": expected})
+
+    def test_capture_response_disabled(self):
+        body = {"name": "Test", "password": 12345}
+        capture_response(body)
+        self.mock_elastic.set_custom_context.assert_not_called()

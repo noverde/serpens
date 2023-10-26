@@ -3,8 +3,9 @@ import unittest
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
-
-import api
+from elasticapm.processors import MASK
+from serpens import api, elastic
+from unittest.mock import patch
 
 
 class TestApiAttrDict(unittest.TestCase):
@@ -121,7 +122,25 @@ class TestApiResponse(unittest.TestCase):
 
 
 class TestApiHandler(unittest.TestCase):
+    def setUp(self) -> None:
+        def capture_serverless(func):
+            return func
+
+        self.elastic_patcher = patch("serpens.elastic.elasticapm")
+        self.mock_elastic = self.elastic_patcher.start()
+        self.mock_elastic.capture_serverless = capture_serverless
+
+        self.os_patcher = patch("serpens.elastic.os")
+        self.os_mock = self.os_patcher.start()
+        self.os_mock.environ = {}
+
+    def tearDown(self) -> None:
+        self.elastic_patcher.stop()
+        self.os_patcher.stop()
+
     def test_handler(self):
+        self.os_mock.environ["ELASTIC_APM_SECRET_TOKEN"] = "123456"
+
         event = {
             "requestContext": {"authorizer": {"foo": "bar", "baz": 1}},
             "body": '{"ping": "pong"}',
@@ -177,68 +196,113 @@ class TestApiHandler(unittest.TestCase):
         def handler_with_response(request):
             return api.Response(body=json.dumps(expected["body"]))
 
-        response = handler(event, context)
+        with self.subTest(use_case=handler):
+            response = handler(event, context)
+            self._asserts_handler(expected, response)
 
+        self.mock_elastic.reset_mock()
+        with self.subTest(use_case=handler_with_status):
+            response = handler_with_status(event, context)
+            self._asserts_handler(expected, response)
+
+        self.mock_elastic.reset_mock()
+        with self.subTest(use_case=handler_with_dict):
+            response = handler_with_dict(event, context)
+            expected_copy = deepcopy(expected)
+            expected_copy["body"]["timestemp"] = "2021-07-01T00:00:00"
+            self._asserts_handler(expected_copy, response)
+
+        self.mock_elastic.reset_mock()
+        with self.subTest(use_case=handler_with_list):
+            response = handler_with_list(event, context)
+            expected_copy = deepcopy(expected)
+            expected_copy["body"]["timestemp"] = "2021-07-01T00:00:00"
+            expected_copy["body"] = [expected_copy["body"]]
+            self._asserts_handler(expected_copy, response)
+
+            body = json.loads(response["body"])
+            self.assertIsInstance(body, list)
+            self.assertIsInstance(body[0], dict)
+
+        self.mock_elastic.reset_mock()
+        with self.subTest(use_case=handler_with_dataclass):
+            response = handler_with_dataclass(event, context)
+            self._asserts_handler(expected, response)
+
+        self.mock_elastic.reset_mock()
+        with self.subTest(use_case=handler_with_response):
+            response = handler_with_response(event, context)
+            self._asserts_handler(expected, response)
+
+    def test_handler_with_elastic_setup(self):
+        self.os_mock.environ["ELASTIC_APM_SECRET_TOKEN"] = "123456"
+
+        elastic.setup()
+
+        event = {
+            "requestContext": {"authorizer": {"foo": "bar", "baz": 1}},
+            "body": '{"ping": "pong"}',
+        }
+        context = {"nothing": "here"}
+        expected = {
+            "headers": {"Access-Control-Allow-Origin": "*"},
+            "statusCode": 200,
+            "body": {"foo": "bar", "ping": "pong", "password": 123456},
+        }
+
+        @api.handler
+        def handler(request):
+            res = {"foo": request.authorizer.foo, "ping": request.body["ping"], "password": 123456}
+            return 200, res
+
+        @api.handler
+        def handler_json(request):
+            res = {"foo": request.authorizer.foo, "ping": request.body["ping"], "password": 123456}
+            return 200, json.dumps(res)
+
+        elastic_response = json.dumps({"foo": "bar", "ping": "pong", "password": MASK})
+
+        with self.subTest(use_case=handler):
+            response = handler(event, context)
+            self._asserts_handler(expected, response, elastic_response)
+
+        self.mock_elastic.reset_mock()
+        with self.subTest(use_case=handler_json):
+            response = handler_json(event, context)
+            self._asserts_handler(expected, response, elastic_response)
+
+    def test_handler_string_with_elastic_setup(self):
+        self.os_mock.environ["ELASTIC_APM_SECRET_TOKEN"] = "123456"
+
+        elastic.setup()
+
+        event = {
+            "requestContext": {"authorizer": {"foo": "bar", "baz": 1}},
+            "body": '{"ping": "pong"}',
+        }
+
+        @api.handler
+        def handler_string(request):
+            res = f"foo={request.authorizer.foo}&ping={request.body['ping']}&password=123456"
+            return 200, json.dumps(res)
+
+        handler_string(event, {})
+        self.mock_elastic.set_custom_context.assert_not_called()
+
+    def _asserts_handler(self, expected, response, elastic_response=None):
         self.assertIn("headers", response)
         self.assertIn("statusCode", response)
         self.assertIn("body", response)
         self.assertEqual(response["headers"], expected["headers"])
         self.assertEqual(response["statusCode"], expected["statusCode"])
-        self.assertDictEqual(json.loads(response["body"]), expected["body"])
+        self.assertEqual(json.loads(response["body"]), expected["body"])
 
-        response = handler_with_status(event, context)
+        if elastic_response is None:
+            elastic_response = response["body"]
 
-        self.assertIn("headers", response)
-        self.assertIn("statusCode", response)
-        self.assertIn("body", response)
-        self.assertEqual(response["headers"], expected["headers"])
-        self.assertEqual(response["statusCode"], expected["statusCode"])
-        self.assertDictEqual(json.loads(response["body"]), expected["body"])
-
-        response = handler_with_dict(event, context)
-
-        self.assertIn("headers", response)
-        self.assertIn("statusCode", response)
-        self.assertIn("body", response)
-        self.assertEqual(response["headers"], expected["headers"])
-        self.assertEqual(response["statusCode"], expected["statusCode"])
-        expected_copy = deepcopy(expected)
-        expected_copy["body"]["timestemp"] = "2021-07-01T00:00:00"
-        self.assertDictEqual(json.loads(response["body"]), expected_copy["body"])
-
-        response = handler_with_list(event, context)
-
-        self.assertIn("headers", response)
-        self.assertIn("statusCode", response)
-        self.assertIn("body", response)
-        self.assertEqual(response["headers"], expected["headers"])
-        self.assertEqual(response["statusCode"], expected["statusCode"])
-        expected_copy = deepcopy(expected)
-        expected_copy["body"]["timestemp"] = "2021-07-01T00:00:00"
-
-        body = json.loads(response["body"])
-
-        self.assertIsInstance(body, list)
-        self.assertIsInstance(body[0], dict)
-        self.assertDictEqual(body[0], expected_copy["body"])
-
-        response = handler_with_dataclass(event, context)
-
-        self.assertIn("headers", response)
-        self.assertIn("statusCode", response)
-        self.assertIn("body", response)
-        self.assertEqual(response["headers"], expected["headers"])
-        self.assertEqual(response["statusCode"], expected["statusCode"])
-        self.assertDictEqual(json.loads(response["body"]), expected["body"])
-
-        response = handler_with_response(event, context)
-
-        self.assertIn("headers", response)
-        self.assertIn("statusCode", response)
-        self.assertIn("body", response)
-        self.assertEqual(response["headers"], expected["headers"])
-        self.assertEqual(response["statusCode"], expected["statusCode"])
-        self.assertDictEqual(json.loads(response["body"]), expected["body"])
+        self.mock_elastic.set_custom_context.assert_called_once_with(
+            {"response_body": elastic_response}
+        )
 
     def test_handler_error(self):
         event = {

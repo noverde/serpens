@@ -1,5 +1,5 @@
 from copy import deepcopy
-from elastic_sanitize import sanitize, _sanitize_var
+from elastic_sanitize import sanitize, _sanitize_var, sanitize_body
 from elasticapm.base import Config
 from elasticapm.processors import MASK
 from elasticapm.utils import starmatch_to_regex
@@ -105,3 +105,24 @@ class TestElasticSanitize(unittest.TestCase):
                 value = _sanitize_var(**input)
 
                 self.assertEqual(value, previous_value)
+
+    def test_sanitize_body(self):
+        sanitize_field_names = ("password", "passwd")
+
+        sanitize_fields = [starmatch_to_regex(x) for x in sanitize_field_names]
+
+        body = {"name": "Max Fitch", "password": 1235, "passwd": "1234"}
+        expected = {"name": "Max Fitch", "password": MASK, "passwd": MASK}
+
+        items = [
+            {
+                "body": body,
+                "expected": expected,
+            },
+            {"body": [body, body], "expected": [expected, expected]},
+        ]
+
+        for item in items:
+            with self.subTest(use_case=item):
+                sanitized = sanitize_body(item["body"], sanitize_fields)
+                self.assertEqual(sanitized, item["expected"])

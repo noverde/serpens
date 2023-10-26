@@ -17,6 +17,10 @@ def _sanitize_var(key, value, sanitize_field_names):
     return value
 
 
+def sanitize_body(body, sanitize_fields):
+    return varmap(_sanitize_var, body, sanitize_field_names=sanitize_fields)
+
+
 @for_events(ERROR, TRANSACTION)
 def sanitize(client, event):
     body = None
