@@ -134,13 +134,18 @@ class TestApiHandler(unittest.TestCase):
         self.os_mock = self.os_patcher.start()
         self.os_mock.environ = {}
 
+        target = "serpens.elastic.ELASTIC_APM_RESPONSE_SANITIZE_FIELDS"
+        value = elastic._get_response_sanitize_fields(True)
+        self.os_sanitize_fields = patch(target, value)
+        self.os_sanitize_fields.start()
+
     def tearDown(self) -> None:
         self.elastic_patcher.stop()
         self.os_patcher.stop()
+        self.os_sanitize_fields.stop()
 
+    @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
     def test_handler(self):
-        self.os_mock.environ["ELASTIC_APM_SECRET_TOKEN"] = "123456"
-
         event = {
             "requestContext": {"authorizer": {"foo": "bar", "baz": 1}},
             "body": '{"ping": "pong"}',
@@ -234,11 +239,8 @@ class TestApiHandler(unittest.TestCase):
             response = handler_with_response(event, context)
             self._asserts_handler(expected, response)
 
+    @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
     def test_handler_with_elastic_setup(self):
-        self.os_mock.environ["ELASTIC_APM_SECRET_TOKEN"] = "123456"
-
-        elastic.setup()
-
         event = {
             "requestContext": {"authorizer": {"foo": "bar", "baz": 1}},
             "body": '{"ping": "pong"}',
@@ -271,11 +273,8 @@ class TestApiHandler(unittest.TestCase):
             response = handler_json(event, context)
             self._asserts_handler(expected, response, elastic_response)
 
-    def test_handler_string_with_elastic_setup(self):
-        self.os_mock.environ["ELASTIC_APM_SECRET_TOKEN"] = "123456"
-
-        elastic.setup()
-
+    @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
+    def test_handler_string(self):
         event = {
             "requestContext": {"authorizer": {"foo": "bar", "baz": 1}},
             "body": '{"ping": "pong"}',
