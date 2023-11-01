@@ -1,47 +1,16 @@
-import json
 import logging
 import sys
 import os
 from functools import wraps
-from serpens.schema import SchemaEncoder
+
+ELASTIC_APM_ENABLED = "ELASTIC_APM_SECRET_TOKEN" in os.environ
 
 logger = logging.getLogger(__name__)
 
 try:
     import elasticapm
-    from elasticapm.utils import starmatch_to_regex
-    from elasticapm.processors import MASK, varmap
 except ImportError:
     logger.warning("Unable to import elasticapm")
-
-
-def _get_response_sanitize_fields(enabled):
-    if not enabled:
-        return None
-
-    field_names = None
-    if "ELASTIC_APM_RESPONSE_SANITIZE_FIELD_NAMES" in os.environ:
-        field_names = os.environ["ELASTIC_APM_RESPONSE_SANITIZE_FIELD_NAMES"].split(",")
-    else:
-        field_names = (
-            "password",
-            "passwd",
-            "pwd",
-            "secret",
-            "*key",
-            "*token*",
-            "*session*",
-            "*credit*",
-            "*card*",
-            "*auth*",
-        )
-
-    return [starmatch_to_regex(x) for x in field_names]
-
-
-ELASTIC_APM_ENABLED = "ELASTIC_APM_SECRET_TOKEN" in os.environ
-
-ELASTIC_APM_RESPONSE_SANITIZE_FIELDS = _get_response_sanitize_fields(ELASTIC_APM_ENABLED)
 
 
 def logger(func):
@@ -70,39 +39,11 @@ def capture_exception(exception, is_http_request=False):
         elasticapm.set_transaction_outcome(outcome="failure", override=False)
 
 
-def _sanitize_var(key, value, sanitize_field_names):
-    if value is None:
-        return None
-
-    if not key or isinstance(value, dict):
-        return value
-
-    key = key.lower().strip()
-    for field in sanitize_field_names:
-        if field.match(key):
-            return MASK
-
-    return value
-
-
 def capture_response(response):
     if not ELASTIC_APM_ENABLED:
         return None
 
-    if isinstance(response, str):
-        try:
-            response = json.loads(response)
-        except json.JSONDecodeError:
-            return None
-
-    if not isinstance(response, (dict, list)):
-        return None
-
-    response_body = json.dumps(
-        varmap(_sanitize_var, response, sanitize_field_names=ELASTIC_APM_RESPONSE_SANITIZE_FIELDS),
-        cls=SchemaEncoder,
-    )
-    elasticapm.set_custom_context({"response_body": response_body})
+    elasticapm.set_custom_context({"response_body": response})
 
 
 def set_transaction_result(result, override=True):
@@ -115,7 +56,8 @@ def setup():
         return None
 
     os.environ["ELASTIC_APM_PROCESSORS"] = (
-        "serpens.elastic_sanitize.sanitize,"
+        "serpens.elastic_sanitize.sanitize_http_request_body,"
+        "serpens.elastic_sanitize.sanitize_http_response_body,"
         "elasticapm.processors.sanitize_stacktrace_locals,"
         "elasticapm.processors.sanitize_http_request_cookies,"
         "elasticapm.processors.sanitize_http_headers,"

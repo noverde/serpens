@@ -1,10 +1,7 @@
-from elasticapm.processors import MASK
 from serpens import elastic
 from serpens.elastic import logger, set_transaction_result
 from unittest.mock import patch
-import json
 import unittest
-from elasticapm.utils import starmatch_to_regex
 
 
 class TestElastic(unittest.TestCase):
@@ -21,15 +18,9 @@ class TestElastic(unittest.TestCase):
         self.os_mock = self.os_patcher.start()
         self.os_mock.environ = {}
 
-        target = "serpens.elastic.ELASTIC_APM_RESPONSE_SANITIZE_FIELDS"
-        value = elastic._get_response_sanitize_fields(True)
-        self.os_sanitize_fields = patch(target, value)
-        self.os_sanitize_fields.start()
-
     def tearDown(self):
         self.elastic_patcher.stop()
         self.os_patcher.stop()
-        self.os_sanitize_fields.stop()
 
     def test_logger_decorator_not_called(self):
         event, context = {}, {}
@@ -61,47 +52,17 @@ class TestElastic(unittest.TestCase):
         apm_processors = self.os_mock.environ.get("ELASTIC_APM_PROCESSORS")
 
         self.assertIsNotNone(apm_processors)
-        self.assertTrue("serpens.elastic_sanitize.sanitize" in apm_processors)
-
-    @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
-    def test_capture_response_string(self):
-        bodies = [
-            "Test body.",
-            "[]Test body.",
-            "{Test body.",
-        ]
-
-        for body in bodies:
-            elastic.capture_response(body)
-            self.mock_elastic.set_custom_context.assert_not_called()
-
-    @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
-    def test_capture_response_json_string(self):
-        body = '{"name":"Test", "password":12345}'
-        expected = json.dumps({"name": "Test", "password": MASK})
-
-        elastic.capture_response(body)
-        self.mock_elastic.set_custom_context.assert_called_once_with({"response_body": expected})
+        self.assertTrue("serpens.elastic_sanitize.sanitize_http_request_body" in apm_processors)
+        self.assertTrue("serpens.elastic_sanitize.sanitize_http_response_body" in apm_processors)
 
     @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
     def test_capture_response(self):
         body = {"name": "Test", "password": 12345}
-        expected = json.dumps({"name": "Test", "password": MASK})
 
         elastic.capture_response(body)
-        self.mock_elastic.set_custom_context.assert_called_once_with({"response_body": expected})
+        self.mock_elastic.set_custom_context.assert_called_once_with({"response_body": body})
 
     def test_capture_response_disabled(self):
         body = {"name": "Test", "password": 12345}
         elastic.capture_response(body)
         self.mock_elastic.set_custom_context.assert_not_called()
-
-    def test_get_response_sanitize_field_names(self):
-        self.os_mock.environ["ELASTIC_APM_RESPONSE_SANITIZE_FIELD_NAMES"] = "password,passwd"
-        field_names = ("password", "passwd")
-
-        fields_expected = [starmatch_to_regex(x) for x in field_names]
-
-        fields = elastic._get_response_sanitize_fields(True)
-
-        self.assertEqual(fields, fields_expected)

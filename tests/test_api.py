@@ -3,8 +3,7 @@ import unittest
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
-from elasticapm.processors import MASK
-from serpens import api, elastic
+from serpens import api
 from unittest.mock import patch
 
 
@@ -134,15 +133,9 @@ class TestApiHandler(unittest.TestCase):
         self.os_mock = self.os_patcher.start()
         self.os_mock.environ = {}
 
-        target = "serpens.elastic.ELASTIC_APM_RESPONSE_SANITIZE_FIELDS"
-        value = elastic._get_response_sanitize_fields(True)
-        self.os_sanitize_fields = patch(target, value)
-        self.os_sanitize_fields.start()
-
     def tearDown(self) -> None:
         self.elastic_patcher.stop()
         self.os_patcher.stop()
-        self.os_sanitize_fields.stop()
 
     @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
     def test_handler(self):
@@ -156,6 +149,9 @@ class TestApiHandler(unittest.TestCase):
             "statusCode": 200,
             "body": {"foo": "bar", "ping": "pong"},
         }
+
+        elastic_response = deepcopy(expected["body"])
+        elastic_response["timestemp"] = datetime.fromisoformat("2021-07-01T00:00:00")
 
         @api.handler
         def handler(request):
@@ -203,19 +199,21 @@ class TestApiHandler(unittest.TestCase):
 
         with self.subTest(use_case=handler):
             response = handler(event, context)
-            self._asserts_handler(expected, response)
+            self._asserts_handler(expected, response, response["body"])
 
         self.mock_elastic.reset_mock()
         with self.subTest(use_case=handler_with_status):
             response = handler_with_status(event, context)
-            self._asserts_handler(expected, response)
+            self._asserts_handler(expected, response, response["body"])
 
         self.mock_elastic.reset_mock()
         with self.subTest(use_case=handler_with_dict):
             response = handler_with_dict(event, context)
             expected_copy = deepcopy(expected)
             expected_copy["body"]["timestemp"] = "2021-07-01T00:00:00"
-            self._asserts_handler(expected_copy, response)
+            elastic_response = deepcopy(expected["body"])
+            elastic_response["timestemp"] = datetime.fromisoformat("2021-07-01T00:00:00")
+            self._asserts_handler(expected_copy, response, elastic_response)
 
         self.mock_elastic.reset_mock()
         with self.subTest(use_case=handler_with_list):
@@ -223,7 +221,7 @@ class TestApiHandler(unittest.TestCase):
             expected_copy = deepcopy(expected)
             expected_copy["body"]["timestemp"] = "2021-07-01T00:00:00"
             expected_copy["body"] = [expected_copy["body"]]
-            self._asserts_handler(expected_copy, response)
+            self._asserts_handler(expected_copy, response, [elastic_response])
 
             body = json.loads(response["body"])
             self.assertIsInstance(body, list)
@@ -232,12 +230,12 @@ class TestApiHandler(unittest.TestCase):
         self.mock_elastic.reset_mock()
         with self.subTest(use_case=handler_with_dataclass):
             response = handler_with_dataclass(event, context)
-            self._asserts_handler(expected, response)
+            self._asserts_handler(expected, response, expected["body"])
 
         self.mock_elastic.reset_mock()
         with self.subTest(use_case=handler_with_response):
             response = handler_with_response(event, context)
-            self._asserts_handler(expected, response)
+            self._asserts_handler(expected, response, response["body"])
 
     @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
     def test_handler_with_elastic_setup(self):
@@ -262,16 +260,14 @@ class TestApiHandler(unittest.TestCase):
             res = {"foo": request.authorizer.foo, "ping": request.body["ping"], "password": 123456}
             return 200, json.dumps(res)
 
-        elastic_response = json.dumps({"foo": "bar", "ping": "pong", "password": MASK})
-
         with self.subTest(use_case=handler):
             response = handler(event, context)
-            self._asserts_handler(expected, response, elastic_response)
+            self._asserts_handler(expected, response, expected["body"])
 
         self.mock_elastic.reset_mock()
         with self.subTest(use_case=handler_json):
             response = handler_json(event, context)
-            self._asserts_handler(expected, response, elastic_response)
+            self._asserts_handler(expected, response, response["body"])
 
     @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
     def test_handler_string(self):
@@ -285,19 +281,18 @@ class TestApiHandler(unittest.TestCase):
             res = f"foo={request.authorizer.foo}&ping={request.body['ping']}&password=123456"
             return 200, json.dumps(res)
 
-        handler_string(event, {})
-        self.mock_elastic.set_custom_context.assert_not_called()
+        response = handler_string(event, {})
+        self.mock_elastic.set_custom_context.assert_called_once_with(
+            {"response_body": response["body"]}
+        )
 
-    def _asserts_handler(self, expected, response, elastic_response=None):
+    def _asserts_handler(self, expected, response, elastic_response):
         self.assertIn("headers", response)
         self.assertIn("statusCode", response)
         self.assertIn("body", response)
         self.assertEqual(response["headers"], expected["headers"])
         self.assertEqual(response["statusCode"], expected["statusCode"])
         self.assertEqual(json.loads(response["body"]), expected["body"])
-
-        if elastic_response is None:
-            elastic_response = response["body"]
 
         self.mock_elastic.set_custom_context.assert_called_once_with(
             {"response_body": elastic_response}
