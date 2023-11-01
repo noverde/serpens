@@ -9,4 +9,4 @@ pony==0.7.17
 moto==4.2.5
 sentry-sdk==1.31.0
 yoyo-migrations==8.2.0
-elastic_apm==6.18.0
+elastic_apm==6.19.0
