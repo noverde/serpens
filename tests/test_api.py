@@ -138,7 +138,7 @@ class TestApiHandler(unittest.TestCase):
         self.os_patcher.stop()
 
     @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
-    @patch("serpens.elastic.ELASTIC_APM_CAPTURE_RESPONSE_BODY", True)
+    @patch("serpens.elastic.ELASTIC_APM_CAPTURE_BODY", True)
     def test_handler(self):
         event = {
             "requestContext": {"authorizer": {"foo": "bar", "baz": 1}},
@@ -239,7 +239,7 @@ class TestApiHandler(unittest.TestCase):
             self._asserts_handler(expected, response, response["body"])
 
     @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
-    @patch("serpens.elastic.ELASTIC_APM_CAPTURE_RESPONSE_BODY", True)
+    @patch("serpens.elastic.ELASTIC_APM_CAPTURE_BODY", True)
     def test_handler_with_elastic_setup(self):
         event = {
             "requestContext": {"authorizer": {"foo": "bar", "baz": 1}},
@@ -272,7 +272,7 @@ class TestApiHandler(unittest.TestCase):
             self._asserts_handler(expected, response, response["body"])
 
     @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
-    @patch("serpens.elastic.ELASTIC_APM_CAPTURE_RESPONSE_BODY", True)
+    @patch("serpens.elastic.ELASTIC_APM_CAPTURE_BODY", True)
     def test_handler_string(self):
         event = {
             "requestContext": {"authorizer": {"foo": "bar", "baz": 1}},

@@ -56,7 +56,7 @@ class TestElastic(unittest.TestCase):
         self.assertTrue("serpens.elastic_sanitize.sanitize_http_response_body" in apm_processors)
 
     @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
-    @patch("serpens.elastic.ELASTIC_APM_CAPTURE_RESPONSE_BODY", True)
+    @patch("serpens.elastic.ELASTIC_APM_CAPTURE_BODY", True)
     def test_capture_response(self):
         body = {"name": "Test", "password": 12345}
 

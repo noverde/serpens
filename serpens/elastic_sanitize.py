@@ -45,17 +45,17 @@ def sanitize_http_response_body(client, event):
     ):
         return event
 
-    response = event["context"]["custom"].get("response_body")
+    response = event["context"]["custom"]["response_body"]
 
     if isinstance(response, str):
         try:
             response = json.loads(response)
         except json.JSONDecodeError:
-            event["context"]["custom"].pop("response_body", None)
+            event["context"]["custom"].pop("response_body")
             return event
 
     if not isinstance(response, (dict, list)):
-        event["context"]["custom"].pop("response_body", None)
+        event["context"]["custom"].pop("response_body")
         return event
 
     response = json.dumps(
