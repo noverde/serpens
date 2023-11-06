@@ -34,6 +34,24 @@ class TestElasticSanitize(unittest.TestCase):
 
         self.assertDictEqual(event_expected, event)
 
+    def test_sanitize_http_request_body_list(self):
+        body, body_expected = self._get_sanitize_transform()
+
+        event = {
+            "context": {
+                "request": {
+                    "method": "POST",
+                    "body": [body, body],
+                },
+            },
+        }
+        event_expected = deepcopy(event)
+        event_expected["context"]["request"]["body"] = [body_expected, body_expected]
+
+        sanitize_http_request_body(self._client, event)
+
+        self.assertDictEqual(event_expected, event)
+
     def test_sanitize_ignore(self):
         events = [
             {
