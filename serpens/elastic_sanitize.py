@@ -26,7 +26,7 @@ def sanitize_http_request_body(client, event):
     if "context" in event and "request" in event["context"]:
         body = event["context"]["request"].get("body")
 
-    if not isinstance(body, dict):
+    if not isinstance(body, (dict, list)):
         return event
 
     event["context"]["request"]["body"] = varmap(
