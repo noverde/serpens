@@ -4,6 +4,7 @@ import os
 from functools import wraps
 
 ELASTIC_APM_ENABLED = "ELASTIC_APM_SECRET_TOKEN" in os.environ
+ELASTIC_APM_CAPTURE_BODY = os.getenv("ELASTIC_APM_CAPTURE_BODY") in ("all", "transactions")
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ def capture_exception(exception, is_http_request=False):
 
 
 def capture_response(response):
-    if not ELASTIC_APM_ENABLED:
+    if not ELASTIC_APM_ENABLED or not ELASTIC_APM_CAPTURE_BODY:
         return None
 
     elasticapm.set_custom_context({"response_body": response})

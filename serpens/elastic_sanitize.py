@@ -38,20 +38,24 @@ def sanitize_http_request_body(client, event):
 
 @for_events(ERROR, TRANSACTION)
 def sanitize_http_response_body(client, event):
-    response = None
+    if (
+        "context" not in event
+        or "custom" not in event["context"]
+        or "response_body" not in event["context"]["custom"]
+    ):
+        return event
 
-    if "context" in event and "custom" in event["context"]:
-        response = event["context"]["custom"].get("response_body")
+    response = event["context"]["custom"]["response_body"]
 
     if isinstance(response, str):
         try:
             response = json.loads(response)
         except json.JSONDecodeError:
-            event["context"]["custom"].pop("response_body", None)
+            event["context"]["custom"].pop("response_body")
             return event
 
     if not isinstance(response, (dict, list)):
-        event["context"]["custom"].pop("response_body", None)
+        event["context"]["custom"].pop("response_body")
         return event
 
     response = json.dumps(

@@ -56,6 +56,7 @@ class TestElastic(unittest.TestCase):
         self.assertTrue("serpens.elastic_sanitize.sanitize_http_response_body" in apm_processors)
 
     @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
+    @patch("serpens.elastic.ELASTIC_APM_CAPTURE_BODY", True)
     def test_capture_response(self):
         body = {"name": "Test", "password": 12345}
 
@@ -63,6 +64,12 @@ class TestElastic(unittest.TestCase):
         self.mock_elastic.set_custom_context.assert_called_once_with({"response_body": body})
 
     def test_capture_response_disabled(self):
+        body = {"name": "Test", "password": 12345}
+        elastic.capture_response(body)
+        self.mock_elastic.set_custom_context.assert_not_called()
+
+    @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
+    def test_capture_response_disabled_with_apm_enabled(self):
         body = {"name": "Test", "password": 12345}
         elastic.capture_response(body)
         self.mock_elastic.set_custom_context.assert_not_called()

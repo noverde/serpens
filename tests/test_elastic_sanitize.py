@@ -71,6 +71,14 @@ class TestElasticSanitize(unittest.TestCase):
 
                 self.assertDictEqual(event_expected, event)
 
+    def test_sanitize_without_request(self):
+        event = {"context": {}}
+        event_expected = deepcopy(event)
+
+        sanitize_http_request_body(self._client, event)
+
+        self.assertDictEqual(event_expected, event)
+
     def test_sanitize_var_mask(self):
         fields_names_rules = ["*password*", "document"]
         fields_names = [starmatch_to_regex(x) for x in fields_names_rules]
@@ -182,6 +190,14 @@ class TestElasticSanitize(unittest.TestCase):
             sanitize_http_response_body(self._client, event)
 
             self.assertDictEqual(event_expected, event)
+
+    def test_sanitize_http_response_body_without_data(self):
+        event = {"context": {}}
+        event_expected = deepcopy(event)
+
+        sanitize_http_response_body(self._client, event)
+
+        self.assertDictEqual(event_expected, event)
 
     def _get_sanitize_transform(self):
         body = {
