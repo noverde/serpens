@@ -53,15 +53,24 @@ def set_transaction_result(result, override=True):
 
 
 def setup():
-    if not ELASTIC_APM_ENABLED:
+    if not ELASTIC_APM_ENABLED or not ELASTIC_APM_CAPTURE_BODY:
         return None
 
-    os.environ["ELASTIC_APM_PROCESSORS"] = (
-        "serpens.elastic_sanitize.sanitize_http_request_body,"
-        "serpens.elastic_sanitize.sanitize_http_response_body,"
-        "elasticapm.processors.sanitize_stacktrace_locals,"
-        "elasticapm.processors.sanitize_http_request_cookies,"
-        "elasticapm.processors.sanitize_http_headers,"
-        "elasticapm.processors.sanitize_http_wsgi_env,"
-        "elasticapm.processors.sanitize_http_request_body"
-    )
+    processors = os.getenv("ELASTIC_APM_PROCESSORS")
+
+    if processors is None:
+        processors = {
+            "elasticapm.processors.sanitize_stacktrace_locals",
+            "elasticapm.processors.sanitize_http_request_cookies",
+            "elasticapm.processors.sanitize_http_headers",
+            "elasticapm.processors.sanitize_http_wsgi_env",
+            "elasticapm.processors.sanitize_http_request_body",
+        }
+    else:
+        processors = set(processors.split(","))
+
+    processors |= {
+        "serpens.elastic_sanitize.sanitize_http_request_body",
+        "serpens.elastic_sanitize.sanitize_http_response_body",
+    }
+    os.environ["ELASTIC_APM_PROCESSORS"] = ",".join(processors)

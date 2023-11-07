@@ -29,9 +29,8 @@ def sanitize_http_request_body(client, event):
     if not isinstance(body, (dict, list)):
         return event
 
-    event["context"]["request"]["body"] = varmap(
-        _sanitize_var, body, sanitize_field_names=client.config.sanitize_field_names
-    )
+    body = varmap(_sanitize_var, body, sanitize_field_names=client.config.sanitize_field_names)
+    event["context"]["request"]["body"] = json.dumps(body, cls=SchemaEncoder)
 
     return event
 
