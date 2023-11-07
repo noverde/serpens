@@ -28,7 +28,7 @@ class TestElasticSanitize(unittest.TestCase):
             },
         }
         event_expected = deepcopy(event)
-        event_expected["context"]["request"]["body"] = body_expected
+        event_expected["context"]["request"]["body"] = json.dumps(body_expected, cls=SchemaEncoder)
 
         sanitize_http_request_body(self._client, event)
 
@@ -46,7 +46,8 @@ class TestElasticSanitize(unittest.TestCase):
             },
         }
         event_expected = deepcopy(event)
-        event_expected["context"]["request"]["body"] = [body_expected, body_expected]
+        body_expected = json.dumps([body_expected, body_expected], cls=SchemaEncoder)
+        event_expected["context"]["request"]["body"] = body_expected
 
         sanitize_http_request_body(self._client, event)
 
