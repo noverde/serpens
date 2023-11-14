@@ -5,7 +5,6 @@ from functools import wraps
 
 from serpens import initializers, elastic
 from serpens.schema import SchemaEncoder
-from serpens.sentry import logger_exception
 
 
 initializers.setup()
@@ -46,7 +45,7 @@ def handler(func):
 
             return response.to_dict()
         except Exception as ex:
-            logger_exception(ex)
+            logger.exception(ex)
             elastic.capture_exception(ex, is_http_request=True)
             return {
                 "statusCode": 500,
