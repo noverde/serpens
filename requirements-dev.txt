@@ -4,7 +4,7 @@ flake8==6.1.0
 build==1.0.3
 twine==4.0.2
 
-boto3==1.28.57
+boto3==1.33.6
 pony==0.7.17
 moto==4.2.5
 sentry-sdk==1.31.0
