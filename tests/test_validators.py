@@ -132,6 +132,7 @@ class TestValidateName(unittest.TestCase):
             "Marcos Assunção",
             "Maria da Silva e Silva",
             "Juscelino Kubitschek de Oliveira",
+            "D'Artagnan",
         )
         for name in names:
             with self.subTest(msg=name):
@@ -146,7 +147,7 @@ class TestValidateName(unittest.TestCase):
             "0Chao Chang",
             " Chao Chang",
             "## Chao Chang",
-            "Æ Chao Chang",
+            "$ Chao Chang",
         )
 
         for name in names:

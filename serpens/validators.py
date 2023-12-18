@@ -103,5 +103,5 @@ def validate_pix(value: str) -> bool:
 
 
 def validate_name(name: str) -> bool:
-    match = re.match(r"^[^\d\W]{2}[\w.'\- ]{0,78}$", name)
+    match = re.match(r"^[^\d\W]{1}[\w.'\- ]{0,78}$", name)
     return match is not None
