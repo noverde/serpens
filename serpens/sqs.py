@@ -1,16 +1,16 @@
 import json
 import logging
+import numbers
 from datetime import datetime
 from functools import wraps
 from json.decoder import JSONDecodeError
-import numbers
 from typing import Any, Dict, Union
 from uuid import uuid4
 
 import boto3
 
+from serpens import elastic, initializers
 from serpens.schema import SchemaEncoder
-from serpens import initializers, elastic
 from serpens.sentry import FilteredEvent
 
 initializers.setup()
@@ -99,7 +99,6 @@ def publish_message(queue_url, body, message_group_id=None, attributes={}):
 
 def handler(func):
     @wraps(func)
-    @elastic.logger
     def wrapper(event: dict, context: dict):
         logger.debug(f"Received data: {event}")
         events_failed = []
