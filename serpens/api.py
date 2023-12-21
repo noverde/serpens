@@ -3,9 +3,8 @@ import logging
 from dataclasses import asdict, is_dataclass
 from functools import wraps
 
-from serpens import initializers, elastic
+from serpens import elastic, initializers
 from serpens.schema import SchemaEncoder
-
 
 initializers.setup()
 
@@ -14,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 def handler(func):
     @wraps(func)
-    @elastic.logger
     def wrapper(event, context):
         logger.debug(f"Received data: {event}")
 
