@@ -48,8 +48,7 @@ class TestIAM(unittest.TestCase):
         )
 
         self.assertIsInstance(response, dict)
-        client.assume_role_with_web_identity.assert_called_once()
-        client.assume_role_with_web_identity.assert_called_with(
+        client.assume_role_with_web_identity.assert_called_once_with(
             RoleArn=role_arn,
             WebIdentityToken=token,
             RoleSessionName=role_session_name,
