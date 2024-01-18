@@ -54,3 +54,26 @@ class TestIAM(unittest.TestCase):
             RoleSessionName=role_session_name,
             DurationSeconds=3600,
         )
+
+    @patch("iam.boto3")
+    def test_initialize_session_with_assume_role(self, m_boto3):
+        role_arn = "example"
+        token = "1234"
+        role_session_name = "example"
+
+        m_response = {
+            "Credentials": {
+                "AccessKeyId": "1234",
+                "SecretAccessKey": "1234",
+                "SessionToken": "1234",
+            }
+        }
+        m_boto3.client.return_value.assume_role_with_web_identity.return_value = m_response
+
+        iam.initialize_session_with_assume_role(role_arn, token, role_session_name)
+
+        m_boto3.Session.assert_called_once_with(
+            aws_access_key_id="1234",
+            aws_secret_access_key="1234",
+            aws_session_token="1234",
+        )
