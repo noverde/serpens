@@ -8,29 +8,33 @@ from requests.exceptions import RequestException
 
 
 class TestComputeEngineGCP(unittest.TestCase):
-    @patch("compute_engine.requests")
-    def test_acquire_token(self, m_requests):
+    def setUp(self):
+        self.patch_requests = patch("compute_engine.requests")
+        self.mock_requests = self.patch_requests.start()
+
+        self.audience = "http://www.example.com"
+
+    def tearDown(self) -> None:
+        self.patch_requests.stop()
+
+    def test_acquire_token(self):
         token = "eyJhbGciOiJSUzI1Ni.eyJhdWQiOiJodHRwczov.b25hd3MuY29tIi"
-        audience = "http://www.example.com"
 
         mock_response = Response()
         mock_response.status_code = HTTPStatus.OK.value
         mock_response._content = token.encode()
 
-        m_requests.get.return_value = mock_response
+        self.mock_requests.get.return_value = mock_response
 
-        acquired_token = compute_engine.acquire_token(audience=audience)
+        acquired_token = compute_engine.acquire_token(audience=self.audience)
 
         self.assertEqual(acquired_token, token)
 
-    @patch("compute_engine.requests")
-    def test_acquire_token_fail(self, m_requests):
-        audience = "http://www.example.com"
-
+    def test_acquire_token_fail(self):
         mock_response = Response()
         mock_response.status_code = HTTPStatus.INTERNAL_SERVER_ERROR.value
 
-        m_requests.get.return_value = mock_response
+        self.mock_requests.get.return_value = mock_response
 
         with self.assertRaises(RequestException):
-            compute_engine.acquire_token(audience=audience)
+            compute_engine.acquire_token(audience=self.audience)
