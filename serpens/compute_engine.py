@@ -15,7 +15,9 @@ def acquire_token(audience, format="standard", licenses=True):
     url = METADATA_VM_IDENTITY_URL.format(audience=audience, format=format, licenses=licenses)
 
     response = requests.get(url, headers=METADATA_HEADERS)
-    logger.debug(f"Response: {response}")
+
+    logger.debug(f"Response status: {response.status_code}")
+    logger.debug(f"Response content: {response.content}")
 
     if not response.ok:
         return None
