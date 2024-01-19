@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 import compute_engine
 from requests import Response
-from requests.exceptions import RequestException
 
 
 class TestComputeEngineGCP(unittest.TestCase):
@@ -36,5 +35,5 @@ class TestComputeEngineGCP(unittest.TestCase):
 
         self.mock_requests.get.return_value = mock_response
 
-        with self.assertRaises(RequestException):
-            compute_engine.acquire_token(audience=self.audience)
+        response = compute_engine.acquire_token(audience=self.audience)
+        self.assertIsNone(response)

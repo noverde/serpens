@@ -13,5 +13,7 @@ def acquire_token(audience, format="standard", licenses=True):
 
     response = requests.get(url, headers=METADATA_HEADERS)
 
-    response.raise_for_status()
+    if not response.ok:
+        return None
+
     return response.text
