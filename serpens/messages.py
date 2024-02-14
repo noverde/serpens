@@ -13,11 +13,13 @@ class MessageProvider(Enum):
 
 
 def publish_message(
-    message_destination, message_body, message_group_id=None, message_attributes={}
+    message_destination, message_body, message_order_key=None, message_attributes={}
 ):
     logger.debug(f"Provider: {MESSAGE_PROVIDER}")
 
     if MESSAGE_PROVIDER == MessageProvider.SQS.value:
-        sqs.publish_message(message_destination, message_body, message_group_id, message_attributes)
+        sqs.publish_message(
+            message_destination, message_body, message_order_key, message_attributes
+        )
     else:
         raise ValueError("Unsupported message provider type or not configured")

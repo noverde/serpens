@@ -13,14 +13,14 @@ class TestMessages(unittest.TestCase):
         self.queue_url = "sqs.us-east-1.amazonaws.com/1234567890/default_queue.fifo"
         self.body = {"message": "my message"}
         self.attributes = {"app_name": "platform-default"}
-        self.message_group_id = "group-test-id"
+        self.message_order_key = "group-test-id"
 
     def tearDown(self):
         self.patch_boto3.stop()
 
     @patch("messages.MESSAGE_PROVIDER", "sqs")
     def test_publish_message_sqs(self):
-        messages.publish_message(self.queue_url, self.body, self.message_group_id, self.attributes)
+        messages.publish_message(self.queue_url, self.body, self.message_order_key, self.attributes)
 
         self.sqs_client.send_message.assert_called_once_with(
             QueueUrl=self.queue_url,
@@ -28,14 +28,14 @@ class TestMessages(unittest.TestCase):
             MessageAttributes={
                 "app_name": {"StringValue": "platform-default", "DataType": "String"}
             },
-            MessageGroupId=self.message_group_id,
-            MessageDeduplicationId=self.message_group_id,
+            MessageGroupId=self.message_order_key,
+            MessageDeduplicationId=self.message_order_key,
         )
 
     def test_publish_message_provider_improperly_configured(self):
         with self.assertRaises(ValueError):
             messages.publish_message(
-                self.queue_url, self.body, self.message_group_id, self.attributes
+                self.queue_url, self.body, self.message_order_key, self.attributes
             )
 
         self.sqs_client.assert_not_called()
