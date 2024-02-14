@@ -12,12 +12,12 @@ class MessageProvider(Enum):
     SQS = "sqs"
 
 
-def send_message(message_destination, message_body, message_group_id=None, message_attributes={}):
-    logger.debug(f"Received message: {message_body}")
-    logger.debug(f"Received destination: {message_destination}")
-    logger.debug(f"Received attributes: {message_attributes}")
+def publish_message(
+    message_destination, message_body, message_group_id=None, message_attributes={}
+):
+    logger.debug(f"Provider: {MESSAGE_PROVIDER}")
 
-    if MESSAGE_PROVIDER == MessageProvider.SQS:
+    if MESSAGE_PROVIDER == MessageProvider.SQS.value:
         sqs.publish_message(message_destination, message_body, message_group_id, message_attributes)
     else:
-        raise ValueError("Unsupported topic type or not configured")
+        raise ValueError("Unsupported message provider type or not configured")
