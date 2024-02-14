@@ -31,5 +31,4 @@
         ".venv": true,
         ".coverage": true
     },
-    "files.autoSave": "afterDelay",
 }
