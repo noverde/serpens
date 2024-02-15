@@ -1,12 +1,13 @@
+import os
 import unittest
 from unittest.mock import patch
 
-import messages
+from messages import MessageClient
 
 
 class TestMessages(unittest.TestCase):
     def setUp(self):
-        self.patch_boto3 = patch("sqs.boto3")
+        self.patch_boto3 = patch("serpens.sqs.boto3")
         self.mock_boto3 = self.patch_boto3.start()
         self.sqs_client = self.mock_boto3.client.return_value
 
@@ -18,9 +19,9 @@ class TestMessages(unittest.TestCase):
     def tearDown(self):
         self.patch_boto3.stop()
 
-    @patch("messages.MESSAGE_PROVIDER", "sqs")
+    @patch.dict(os.environ, {"MESSAGE_PROVIDER": "sqs"})
     def test_publish_message_sqs(self):
-        messages.publish_message(self.queue_url, self.body, self.message_order_key, self.attributes)
+        MessageClient.publish(self.queue_url, self.body, self.message_order_key, self.attributes)
 
         self.sqs_client.send_message.assert_called_once_with(
             QueueUrl=self.queue_url,
@@ -34,7 +35,7 @@ class TestMessages(unittest.TestCase):
 
     def test_publish_message_provider_improperly_configured(self):
         with self.assertRaises(ValueError):
-            messages.publish_message(
+            MessageClient.publish(
                 self.queue_url, self.body, self.message_order_key, self.attributes
             )
 
