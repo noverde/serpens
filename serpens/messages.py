@@ -19,7 +19,6 @@ class MessageClient:
         logger.debug(f"Provider: {self._provider.value}")
         module = importlib.import_module(f"serpens.{self._provider.value}")
         self._publish = module.publish_message
-        self._instance = self
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
