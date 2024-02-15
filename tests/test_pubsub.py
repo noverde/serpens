@@ -48,8 +48,7 @@ class pubsub(unittest.TestCase):
                     case["attributes"] = {}
 
                 if ":" in case["topic"]:
-                    case["topic"], endpoint = case["topic"].split(":")
-                    case["endpoint"] = endpoint
+                    case["topic"], case["endpoint"] = case["topic"].split(":")
 
                 self.assertEqual(message_id, expected_message_id),
 
