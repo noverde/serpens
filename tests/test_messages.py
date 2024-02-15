@@ -1,6 +1,7 @@
 import os
 import unittest
 from unittest.mock import patch
+from enum import Enum
 
 from messages import MessageClient
 
@@ -11,32 +12,47 @@ class TestMessages(unittest.TestCase):
         self.mock_boto3 = self.patch_boto3.start()
         self.sqs_client = self.mock_boto3.client.return_value
 
-        self.queue_url = "sqs.us-east-1.amazonaws.com/1234567890/default_queue.fifo"
+        self.destination = "sqs.us-east-1.amazonaws.com/1234567890/default_queue.fifo"
         self.body = {"message": "my message"}
         self.attributes = {"app_name": "platform-default"}
-        self.message_order_key = "group-test-id"
+        self.order_key = "group-test-id"
 
     def tearDown(self):
         self.patch_boto3.stop()
 
     @patch.dict(os.environ, {"MESSAGE_PROVIDER": "sqs"})
     def test_publish_message_sqs(self):
-        MessageClient.publish(self.queue_url, self.body, self.message_order_key, self.attributes)
+        MessageClient.publish(self.destination, self.body, self.order_key, self.attributes)
 
         self.sqs_client.send_message.assert_called_once_with(
-            QueueUrl=self.queue_url,
+            QueueUrl=self.destination,
             MessageBody='{"message": "my message"}',
             MessageAttributes={
                 "app_name": {"StringValue": "platform-default", "DataType": "String"}
             },
-            MessageGroupId=self.message_order_key,
-            MessageDeduplicationId=self.message_order_key,
+            MessageGroupId=self.order_key,
+            MessageDeduplicationId=self.order_key,
         )
 
     def test_publish_message_provider_improperly_configured(self):
         with self.assertRaises(ValueError):
-            MessageClient.publish(
-                self.queue_url, self.body, self.message_order_key, self.attributes
+            MessageClient.publish(self.destination, self.body, self.order_key, self.attributes)
+
+        self.sqs_client.assert_not_called()
+
+    def test_publish_message_provider_module_not_found(self):
+        with self.assertRaises(ModuleNotFoundError):
+            MessageEnum = Enum("MessageProvider", {"INVALID": "invalid", "SQS": "sqs"})
+
+            MessageClient(provider=MessageEnum.INVALID).publish(
+                self.destination, self.body, self.order_key, self.attributes
             )
 
         self.sqs_client.assert_not_called()
+
+    @patch.dict(os.environ, {"MESSAGE_PROVIDER": "sqs"})
+    def test_publish_message_singleton(self):
+        client_1 = MessageClient()
+        client_2 = MessageClient()
+
+        self.assertEqual(id(client_1), id(client_2))

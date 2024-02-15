@@ -19,6 +19,12 @@ class MessageClient:
         logger.debug(f"Provider: {self._provider.value}")
         module = importlib.import_module(f"serpens.{self._provider.value}")
         self._publish = module.publish_message
+        self._instance = self
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(MessageClient, cls).__new__(cls, *args, **kwargs)
+        return cls._instance
 
     @classmethod
     def publish(
@@ -28,7 +34,4 @@ class MessageClient:
         order_key: Optional[str] = None,
         attributes: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
-        if cls._instance is None:
-            cls._instance = cls()
-
-        return cls._instance._publish(destination, body, order_key, attributes)
+        return cls()._publish(destination, body, order_key, attributes)
