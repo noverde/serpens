@@ -1,5 +1,6 @@
 import json
 from typing import Any, Dict, Optional
+
 from google.cloud import pubsub_v1
 
 from serpens.schema import SchemaEncoder
