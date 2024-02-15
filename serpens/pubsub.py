@@ -1,20 +1,25 @@
-import logging
-
+import json
+from typing import Optional
 from google.cloud import pubsub_v1
 
-logger = logging.getLogger(__name__)
+from serpens.schema import SchemaEncoder
 
 
-def publish_message(message_destination, body, attributes={}):
-    logger.debug(f"Received message: {body}")
-    logger.debug(f"Received destination: {message_destination}")
-    logger.debug(f"Received attributes: {attributes}")
-
+def publish_message(
+    topic, data, ordering_key: str = "", attributes: Optional[dict[str, any]] = None
+):
     publisher = pubsub_v1.PublisherClient()
-    message = body.encode("utf-8")
 
-    future = publisher.publish(message_destination, data=message, **attributes)
-    result = future.result()
+    if not isinstance(data, str):
+        data = json.dumps(data, cls=SchemaEncoder)
 
-    logger.debug(f"Received result: {result}")
-    return result
+    if attributes is None:
+        attributes = {}
+
+    message = data.encode("utf-8")
+
+    future = publisher.publish(
+        topic, data=message, ordering_key=ordering_key, **attributes
+    )
+
+    return future.result()
