@@ -16,12 +16,15 @@ class pubsub(unittest.TestCase):
         publisher.publish.return_value.result.return_value = expected_message_id
 
         message_id = publish_message(
-            "projects/dotz-noverde-dev/topics/sre-playground", message, attr
+            "projects/dotz-noverde-dev/topics/sre-playground", message, attributes=attr
         )
 
         self.assertEqual(message_id, expected_message_id),
         publisher.publish.assert_called_once_with(
-            "projects/dotz-noverde-dev/topics/sre-playground", data=message.encode("utf-8"), **attr
+            "projects/dotz-noverde-dev/topics/sre-playground",
+            data=message.encode("utf-8"),
+            ordering_key="",
+            **attr,
         )
 
     @patch("pubsub.pubsub_v1")
@@ -35,4 +38,6 @@ class pubsub(unittest.TestCase):
         )
 
         with self.assertRaises(exceptions.NotFound):
-            publish_message("projects/dotz-noverde-dev/topics/sre-playground", message, attr)
+            publish_message(
+                "projects/dotz-noverde-dev/topics/sre-playground", message, attributes=attr
+            )

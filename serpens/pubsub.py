@@ -18,8 +18,6 @@ def publish_message(
 
     message = data.encode("utf-8")
 
-    future = publisher.publish(
-        topic, data=message, ordering_key=ordering_key, **attributes
-    )
+    future = publisher.publish(topic, data=message, ordering_key=ordering_key, **attributes)
 
     return future.result()
