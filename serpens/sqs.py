@@ -77,7 +77,7 @@ def publish_message_batch(queue_url, messages, message_group_id=None):
     return result
 
 
-def publish_message(queue_url, body, message_group_id=None, attributes={}):
+def publish_message(queue_url, body, message_group_id=None, attributes=None):
     client = boto3.client("sqs")
 
     if not isinstance(body, str):
@@ -85,7 +85,9 @@ def publish_message(queue_url, body, message_group_id=None, attributes={}):
 
     params = {"QueueUrl": queue_url, "MessageBody": body}
 
-    message_attributes = build_message_attributes(attributes)
+    message_attributes = None
+    if attributes is not None:
+        message_attributes = build_message_attributes(attributes)
 
     if message_attributes:
         params["MessageAttributes"] = message_attributes
