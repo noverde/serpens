@@ -1,12 +1,12 @@
 import json
-from typing import Optional
+from typing import Dict, Optional
 from google.cloud import pubsub_v1
 
 from serpens.schema import SchemaEncoder
 
 
 def publish_message(
-    topic, data, ordering_key: str = "", attributes: Optional[dict[str, any]] = None
+    topic, data, ordering_key: str = "", attributes: Optional[Dict[str, any]] = None
 ):
     publisher = pubsub_v1.PublisherClient()
 
