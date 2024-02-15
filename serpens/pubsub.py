@@ -6,17 +6,21 @@ from serpens.schema import SchemaEncoder
 
 
 def publish_message(
-    topic, data, ordering_key: str = "", attributes: Optional[Dict[str, Any]] = None
-) -> Dict[str, any]:
+    topic: str, data: Any, ordering_key: str = "", attributes: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     publisher = pubsub_v1.PublisherClient()
 
     if not isinstance(data, str):
         data = json.dumps(data, cls=SchemaEncoder)
 
+    message = data.encode("utf-8")
+
     if attributes is None:
         attributes = {}
 
-    message = data.encode("utf-8")
+    if ":" in topic:
+        topic, endpoint = topic.split(":")
+        attributes["endpoint"] = endpoint
 
     future = publisher.publish(topic, data=message, ordering_key=ordering_key, **attributes)
 
