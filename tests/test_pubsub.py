@@ -36,7 +36,7 @@ class pubsub(unittest.TestCase):
         publisher.publish.return_value.result.return_value = expected_message_id
 
         for case in use_cases:
-            with self.subTest(case):
+            with self.subTest(**case):
                 message_id = publish_message(
                     case["topic"], case["data"], attributes=case["attributes"]
                 )
