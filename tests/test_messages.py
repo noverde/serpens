@@ -1,9 +1,9 @@
 import os
 import unittest
-from unittest.mock import patch
 from enum import Enum
+from unittest.mock import patch
 
-from messages import MessageClient
+from serpens.messages import MessageClient
 
 
 class TestMessages(unittest.TestCase):
@@ -22,7 +22,9 @@ class TestMessages(unittest.TestCase):
 
     @patch.dict(os.environ, {"MESSAGE_PROVIDER": "sqs"})
     def test_publish_message_sqs(self):
-        MessageClient.publish(self.destination, self.body, self.order_key, self.attributes)
+        MessageClient.instance().publish(
+            self.destination, self.body, self.order_key, self.attributes
+        )
 
         self.sqs_client.send_message.assert_called_once_with(
             QueueUrl=self.destination,
@@ -36,15 +38,20 @@ class TestMessages(unittest.TestCase):
 
     def test_publish_message_provider_improperly_configured(self):
         with self.assertRaises(ValueError):
-            MessageClient.publish(self.destination, self.body, self.order_key, self.attributes)
+            MessageClient.instance().publish(
+                self.destination, self.body, self.order_key, self.attributes
+            )
 
         self.sqs_client.assert_not_called()
 
     def test_publish_message_provider_module_not_found(self):
         with self.assertRaises(ModuleNotFoundError):
-            MessageEnum = Enum("MessageProvider", {"INVALID": "invalid", "SQS": "sqs"})
 
-            MessageClient(provider=MessageEnum.INVALID).publish(
+            class MessageProvider(Enum):
+                INVALID = "invalid"
+                SQS = "sqs"
+
+            MessageClient(provider=MessageProvider.INVALID).publish(
                 self.destination, self.body, self.order_key, self.attributes
             )
 
@@ -52,7 +59,7 @@ class TestMessages(unittest.TestCase):
 
     @patch.dict(os.environ, {"MESSAGE_PROVIDER": "sqs"})
     def test_publish_message_singleton(self):
-        client_1 = MessageClient()
-        client_2 = MessageClient()
+        client_1 = MessageClient.instance()
+        client_2 = MessageClient.instance()
 
         self.assertEqual(id(client_1), id(client_2))

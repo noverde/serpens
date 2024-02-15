@@ -20,17 +20,17 @@ class MessageClient:
         module = importlib.import_module(f"serpens.{self._provider.value}")
         self._publish = module.publish_message
 
-    def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
-            cls._instance = super(MessageClient, cls).__new__(cls, *args, **kwargs)
-        return cls._instance
-
-    @classmethod
     def publish(
-        cls,
+        self,
         destination: str,
         body: Any,
         order_key: Optional[str] = None,
         attributes: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
-        return cls()._publish(destination, body, order_key, attributes)
+        return self._publish(destination, body, order_key, attributes)
+
+    @classmethod
+    def instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
