@@ -10,7 +10,7 @@ from serpens.schema import SchemaEncoder
 class pubsub(unittest.TestCase):
     @patch("pubsub.pubsub_v1")
     def test_publish_message_succeeded(self, m_pubsub_v1):
-        items = (
+        use_cases = (
             {
                 "case": "data is not an instance of string",
                 "topic": "projects/myproject/topics/mytopic",
@@ -27,7 +27,7 @@ class pubsub(unittest.TestCase):
                 "case": "topic name have a endpoint",
                 "topic": "projects/myproject/topics/mytopic:myqueue",
                 "data": "foo",
-                "attributes": {"foo": "bar", "endpoint": "myqueue"},
+                "attributes": {"foo": "bar"},
             },
         )
 
@@ -35,25 +35,29 @@ class pubsub(unittest.TestCase):
         publisher = m_pubsub_v1.PublisherClient.return_value
         publisher.publish.return_value.result.return_value = expected_message_id
 
-        for item in items:
-            with self.subTest(item["case"]):
+        for case in use_cases:
+            with self.subTest(case):
                 message_id = publish_message(
-                    item["topic"], item["data"], attributes=item["attributes"]
+                    case["topic"], case["data"], attributes=case["attributes"]
                 )
 
-                if item["attributes"] is None:
-                    item["attributes"] = {}
+                if not isinstance(case["data"], str):
+                    case["data"] = json.dumps(case["data"], cls=SchemaEncoder)
 
-                if not isinstance(item["data"], str):
-                    item["data"] = json.dumps(item["data"], cls=SchemaEncoder)
+                if case["attributes"] is None:
+                    case["attributes"] = {}
+
+                if ":" in case["topic"]:
+                    case["topic"], endpoint = case["topic"].split(":")
+                    case["endpoint"] = endpoint
 
                 self.assertEqual(message_id, expected_message_id),
 
                 publisher.publish.assert_called_with(
-                    "projects/myproject/topics/mytopic",
-                    data=item["data"].encode("utf-8"),
+                    case["topic"],
+                    data=case["data"].encode("utf-8"),
                     ordering_key="",
-                    **item["attributes"],
+                    **case["attributes"],
                 )
 
     @patch("pubsub.pubsub_v1")
