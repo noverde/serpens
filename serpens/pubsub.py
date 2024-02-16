@@ -28,6 +28,9 @@ def publish_message(
         topic, endpoint = topic.split(":")
         attributes["endpoint"] = endpoint
 
+    if ordering_key is None:
+        ordering_key = ""
+
     future = publisher.publish(topic, data=message, ordering_key=ordering_key, **attributes)
 
     return future.result()
@@ -42,6 +45,9 @@ def publish_message_batch(topic: str, messages: List[Dict], ordering_key: str = 
 
     if ":" in topic:
         topic, endpoint = topic.split(":")
+
+    if ordering_key is None:
+        ordering_key = ""
 
     for message in messages:
         if not isinstance(message["body"], str):

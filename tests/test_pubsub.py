@@ -16,18 +16,28 @@ class pubsub(unittest.TestCase):
                 "topic": "projects/myproject/topics/mytopic",
                 "data": {"foo": "bar"},
                 "attributes": {"foo": "bar"},
+                "ordering_key": "",
             },
             {
                 "case": "attribute is none",
                 "topic": "projects/myproject/topics/mytopic",
                 "data": "foo",
                 "attributes": None,
+                "ordering_key": "",
             },
             {
                 "case": "topic name have a endpoint",
                 "topic": "projects/myproject/topics/mytopic:myqueue",
                 "data": "foo",
                 "attributes": {"foo": "bar"},
+                "ordering_key": "",
+            },
+            {
+                "case": "ordering key is none",
+                "topic": "projects/myproject/topics/mytopic",
+                "data": "foo",
+                "attributes": {"foo": "bar"},
+                "ordering_key": None,
             },
         )
 
@@ -38,7 +48,10 @@ class pubsub(unittest.TestCase):
         for case in use_cases:
             with self.subTest(**case):
                 message_id = publish_message(
-                    case["topic"], case["data"], attributes=case["attributes"]
+                    case["topic"],
+                    case["data"],
+                    ordering_key=case["ordering_key"],
+                    attributes=case["attributes"],
                 )
 
                 if not isinstance(case["data"], str):
@@ -83,16 +96,25 @@ class pubsub(unittest.TestCase):
                 "case": "data is not an instance of string",
                 "topic": "projects/myproject/topics/mytopic",
                 "data": [{"body": {"foo": "bar"}, "attributes": {"foo": "bar"}}],
+                "ordering_key": "",
             },
             {
                 "case": "attribute is none",
                 "topic": "projects/myproject/topics/mytopic",
                 "data": [{"body": "foo"}],
+                "ordering_key": "",
             },
             {
                 "case": "topic name have a endpoint",
                 "topic": "projects/myproject/topics/mytopic:myqueue",
                 "data": [{"body": "foo", "attributes": {"foo": "bar"}}],
+                "ordering_key": "",
+            },
+            {
+                "case": "ordering key is None",
+                "topic": "projects/myproject/topics/mytopic",
+                "data": [{"body": "bar", "attributes": {"foo": "bar"}}],
+                "ordering_key": None,
             },
         )
 
@@ -102,7 +124,9 @@ class pubsub(unittest.TestCase):
 
         for case in use_cases:
             with self.subTest(**case):
-                message_id = publish_message_batch(case["topic"], case["data"])
+                message_id = publish_message_batch(
+                    case["topic"], case["data"], case["ordering_key"]
+                )
 
                 if ":" in case["topic"]:
                     case["topic"], case["endpoint"] = case["topic"].split(":")
