@@ -41,7 +41,7 @@ def publish_message_batch(topic: str, data: List[Dict], ordering_key: str = "") 
 
         message = _data["body"].encode("utf-8")
 
-        if _data["attributes"] is None:
+        if _data.get("attributes") is None:
             _data["attributes"] = {}
 
         if endpoint is not None:
