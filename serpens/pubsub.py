@@ -28,27 +28,27 @@ def publish_message(
     return future.result()
 
 
-def publish_message_batch(topic: str, data: List[Dict], ordering_key: str = "") -> List[str]:
+def publish_message_batch(topic: str, messages: List[Dict], ordering_key: str = "") -> List[str]:
     publisher = pubsub_v1.PublisherClient()
     results = []
 
     if ":" in topic:
         topic, endpoint = topic.split(":")
 
-    for _data in data:
-        if not isinstance(_data["body"], str):
-            _data["body"] = json.dumps(_data["body"], cls=SchemaEncoder)
+    for message in messages:
+        if not isinstance(message["body"], str):
+            message["body"] = json.dumps(message["body"], cls=SchemaEncoder)
 
-        message = _data["body"].encode("utf-8")
+        body = message["body"].encode("utf-8")
 
-        if _data.get("attributes") is None:
-            _data["attributes"] = {}
+        if message.get("attributes") is None:
+            message["attributes"] = {}
 
         if endpoint is not None:
-            _data["attributes"]["endpoint"] = endpoint
+            message["attributes"]["endpoint"] = endpoint
 
         future = publisher.publish(
-            topic, _data=message, ordering_key=ordering_key, **_data["attributes"]
+            topic, data=body, ordering_key=ordering_key, **message["attributes"]
         )
 
         results.append(future.result())
