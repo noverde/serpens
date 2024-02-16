@@ -31,6 +31,7 @@ def publish_message(
 def publish_message_batch(topic: str, messages: List[Dict], ordering_key: str = "") -> List[str]:
     publisher = pubsub_v1.PublisherClient()
     results = []
+    endpoint = None
 
     if ":" in topic:
         topic, endpoint = topic.split(":")

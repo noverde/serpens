@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch
 
 from google.api_core import exceptions
-from pubsub import publish_message
+from pubsub import publish_message, publish_message_batch
 from serpens.schema import SchemaEncoder
 
 
@@ -71,5 +71,72 @@ class pubsub(unittest.TestCase):
 
         with self.assertRaises(exceptions.NotFound):
             publish_message(
-                "projects/dotz-noverde-dev/topics/sre-playground", message, attributes=attr
+                "projects/dotz-noverde-dev/topics/sre-playground",
+                message,
+                attributes=attr,
+            )
+
+    @patch("pubsub.pubsub_v1")
+    def test_publish_message_batch_succeeded(self, m_pubsub_v1):
+        use_cases = (
+            {
+                "case": "data is not an instance of string",
+                "topic": "projects/myproject/topics/mytopic",
+                "data": [{"body": {"foo": "bar"}, "attributes": {"foo": "bar"}}],
+            },
+            {
+                "case": "attribute is none",
+                "topic": "projects/myproject/topics/mytopic",
+                "data": [{"body": "foo", "attributes": None}],
+            },
+            {
+                "case": "topic name have a endpoint",
+                "topic": "projects/myproject/topics/mytopic:myqueue",
+                "data": [{"body": "foo", "attributes": {"foo": "bar"}}],
+            },
+        )
+
+        expected_message_id = 123
+        publisher = m_pubsub_v1.PublisherClient.return_value
+        publisher.publish.return_value.result.return_value = expected_message_id
+
+        for case in use_cases:
+            with self.subTest(**case):
+                message_id = publish_message_batch(case["topic"], case["data"])
+
+                if ":" in case["topic"]:
+                    case["topic"], case["endpoint"] = case["topic"].split(":")
+
+                messages = case["data"]
+
+                for message in messages:
+
+                    if not isinstance(message["body"], str):
+                        message["body"] = json.dumps(message["body"], cls=SchemaEncoder)
+
+                    if message.get("attributes") is None:
+                        message["attributes"] = {}
+
+                    self.assertEqual(message_id, [123]),
+
+                    publisher.publish.assert_called_with(
+                        case["topic"],
+                        data=message["body"].encode("utf-8"),
+                        ordering_key="",
+                        **message["attributes"],
+                    )
+
+    @patch("pubsub.pubsub_v1")
+    def test_publish_message_batch_failed(self, m_pubsub_v1):
+        message = [{"body": "foo", "attributes": {"foo": "bar"}}]
+
+        publisher = m_pubsub_v1.PublisherClient.return_value
+        publisher.publish.side_effect = exceptions.NotFound(
+            "404 Resource not found (resource=sre-playground)"
+        )
+
+        with self.assertRaises(exceptions.NotFound):
+            publish_message_batch(
+                "projects/dotz-noverde-dev/topics/sre-playground",
+                message,
             )
