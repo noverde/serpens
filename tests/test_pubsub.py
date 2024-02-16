@@ -87,7 +87,7 @@ class pubsub(unittest.TestCase):
             {
                 "case": "attribute is none",
                 "topic": "projects/myproject/topics/mytopic",
-                "data": [{"body": "foo", "attributes": None}],
+                "data": [{"body": "foo"}],
             },
             {
                 "case": "topic name have a endpoint",
