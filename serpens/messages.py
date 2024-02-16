@@ -2,7 +2,7 @@ import importlib
 import logging
 import os
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,8 @@ class MessageClient:
         self._provider = provider or MessageProvider(os.getenv("MESSAGE_PROVIDER"))
         logger.debug(f"Provider: {self._provider.value}")
         module = importlib.import_module(f"serpens.{self._provider.value}")
-        self._publish = module.publish_message
+        self._publish = getattr(module, "publish_message", None)
+        self._publish_batch = getattr(module, "publish_message_batch", None)
 
     def publish(
         self,
@@ -29,6 +30,11 @@ class MessageClient:
         attributes: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         return self._publish(destination, body, order_key, attributes)
+
+    def publish_batch(
+        self, destination: str, messages: List[Any], order_key: Optional[str] = None
+    ) -> Dict[str, Any]:
+        return self._publish_batch(destination, messages, order_key)
 
     @classmethod
     def instance(cls):
