@@ -5,10 +5,7 @@ from google.cloud import pubsub_v1
 
 from serpens.schema import SchemaEncoder
 
-import logging
-
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
+MAX_BATCH_SIZE = 10
 
 
 def publish_message(
@@ -37,9 +34,10 @@ def publish_message(
 
 
 def publish_message_batch(topic: str, messages: List[Dict], ordering_key: str = "") -> List[str]:
-    publisher = pubsub_v1.PublisherClient()
+    batch_settings = pubsub_v1.types.BatchSettings(max_messages=MAX_BATCH_SIZE)
+    publisher = pubsub_v1.PublisherClient(batch_settings=batch_settings)
+
     futures = []
-    results = []
     endpoint = None
 
     if ":" in topic:
@@ -63,7 +61,4 @@ def publish_message_batch(topic: str, messages: List[Dict], ordering_key: str = 
 
         futures.append(future)
 
-    for future in futures:
-        results.append(future.result())
-
-    return results
+    return [f.result() for f in futures]
