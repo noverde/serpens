@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from google.cloud import pubsub_v1
 
@@ -26,3 +26,31 @@ def publish_message(
     future = publisher.publish(topic, data=message, ordering_key=ordering_key, **attributes)
 
     return future.result()
+
+
+def publish_message_batch(topic: str, datas: List[Dict], ordering_key: str = "") -> List[str]:
+    publisher = pubsub_v1.PublisherClient()
+    future = []
+
+    if ":" in topic:
+        topic, endpoint = topic.split(":")
+
+    for data in datas:
+        if not isinstance(data["body"], str):
+            data["body"] = json.dumps(data["body"], cls=SchemaEncoder)
+
+        message = data["body"].encode("utf-8")
+
+        if data["attributes"] is None:
+            data["attributes"] = {}
+
+        if endpoint is not None:
+            data["attributes"]["endpoint"] = endpoint
+
+        future.append(
+            publisher.publish(
+                topic, data=message, ordering_key=ordering_key, **data["attributes"]
+            ).result()
+        )
+
+    return future
