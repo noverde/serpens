@@ -1,3 +1,4 @@
+import json
 import os
 import unittest
 from enum import Enum
@@ -12,6 +13,10 @@ class TestMessages(unittest.TestCase):
         self.mock_boto3 = self.patch_boto3.start()
         self.sqs_client = self.mock_boto3.client.return_value
 
+        self.patch_pubsub_v1 = patch("serpens.pubsub.pubsub_v1")
+        self.mock_pubsub_v1 = self.patch_pubsub_v1.start()
+        self.pubsub_client = self.mock_pubsub_v1.PublisherClient.return_value
+
         self.destination = "sqs.us-east-1.amazonaws.com/1234567890/default_queue.fifo"
         self.body = {"message": "my message"}
         self.attributes = {"app_name": "platform-default"}
@@ -19,6 +24,7 @@ class TestMessages(unittest.TestCase):
 
     def tearDown(self):
         self.patch_boto3.stop()
+        self.patch_pubsub_v1.stop()
 
     @patch.dict(os.environ, {"MESSAGE_PROVIDER": "sqs"})
     def test_publish_message_sqs(self):
@@ -34,6 +40,17 @@ class TestMessages(unittest.TestCase):
             },
             MessageGroupId=self.order_key,
             MessageDeduplicationId=self.order_key,
+        )
+
+    @patch.dict(os.environ, {"MESSAGE_PROVIDER": "pubsub"})
+    def test_publish_message_pubsub(self):
+        MessageClient().publish(self.destination, self.body, self.order_key, self.attributes)
+
+        self.pubsub_client.publish.assert_called_once_with(
+            self.destination,
+            data=json.dumps(self.body).encode(),
+            ordering_key=self.order_key,
+            app_name="platform-default",
         )
 
     def test_publish_message_provider_improperly_configured(self):

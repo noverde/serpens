@@ -24,6 +24,9 @@ def publish_message(
     if attributes is None:
         attributes = {}
 
+    if ordering_key is None:
+        ordering_key = ""
+
     if ":" in topic:
         topic, endpoint = topic.split(":")
         attributes["endpoint"] = endpoint
