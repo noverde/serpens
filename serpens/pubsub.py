@@ -5,10 +5,18 @@ from google.cloud import pubsub_v1
 
 from serpens.schema import SchemaEncoder
 
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+
 
 def publish_message(
-    topic: str, data: Any, ordering_key: str = "", attributes: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
+    topic: str,
+    data: Any,
+    ordering_key: str = "",
+    attributes: Optional[Dict[str, Any]] = None,
+) -> str:
     publisher = pubsub_v1.PublisherClient()
 
     if not isinstance(data, str):
@@ -30,6 +38,7 @@ def publish_message(
 
 def publish_message_batch(topic: str, messages: List[Dict], ordering_key: str = "") -> List[str]:
     publisher = pubsub_v1.PublisherClient()
+    futures = []
     results = []
     endpoint = None
 
@@ -52,6 +61,9 @@ def publish_message_batch(topic: str, messages: List[Dict], ordering_key: str = 
             topic, data=body, ordering_key=ordering_key, **message["attributes"]
         )
 
+        futures.append(future)
+
+    for future in futures:
         results.append(future.result())
 
     return results
