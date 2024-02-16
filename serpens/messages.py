@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 class MessageProvider(Enum):
     SQS = "sqs"
+    PUBSUB = "pubsub"
 
 
 class MessageClient:
