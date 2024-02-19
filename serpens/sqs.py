@@ -36,7 +36,8 @@ def build_message_attributes(attributes):
     return message_attributes
 
 
-def publish_message_batch(queue_url, messages, message_group_id=None):
+def publish_message_batch(queue_url, messages, order_key=None):
+    message_group_id = order_key
     client = boto3.client("sqs")
     entries = []
     result = []
