@@ -22,6 +22,44 @@ class TestMessages(unittest.TestCase):
         self.attributes = {"app_name": "platform-default"}
         self.order_key = "group-test-id"
 
+        self.messages = [
+            {
+                "body": "message 1",
+                "attributes": {
+                    "key1": "value1",
+                    "key2": 123,
+                    "key3": b"binary data",
+                },
+            },
+            {
+                "body": "message 2",
+                "attributes": {
+                    "key1": "value2",
+                    "key2": "123",
+                    "key3": 123456,
+                },
+            },
+        ]
+
+        self.expected_entries = [
+            {
+                "MessageBody": "message 1",
+                "MessageAttributes": {
+                    "key1": {"StringValue": "value1", "DataType": "String"},
+                    "key2": {"StringValue": 123, "DataType": "Number"},
+                    "key3": {"BinaryValue": b"binary data", "DataType": "Binary"},
+                },
+            },
+            {
+                "MessageBody": "message 2",
+                "MessageAttributes": {
+                    "key1": {"StringValue": "value2", "DataType": "String"},
+                    "key2": {"StringValue": "123", "DataType": "String"},
+                    "key3": {"StringValue": 123456, "DataType": "Number"},
+                },
+            },
+        ]
+
     def tearDown(self):
         self.patch_boto3.stop()
         self.patch_pubsub_v1.stop()
@@ -41,6 +79,18 @@ class TestMessages(unittest.TestCase):
             MessageGroupId=self.order_key,
             MessageDeduplicationId=self.order_key,
         )
+
+    @patch.dict(os.environ, {"MESSAGE_PROVIDER": "sqs"})
+    def test_publish_message_batch_sqs(self):
+        MessageClient().publish_batch(self.destination, self.messages)
+
+        call_entries = self.sqs_client.send_message_batch.call_args.kwargs["Entries"]
+
+        for entry in call_entries:
+            del entry["Id"]
+
+        self.sqs_client.send_message_batch.assert_called_once()
+        self.assertListEqual(call_entries, self.expected_entries)
 
     @patch.dict(os.environ, {"MESSAGE_PROVIDER": "pubsub"})
     def test_publish_message_pubsub(self):
