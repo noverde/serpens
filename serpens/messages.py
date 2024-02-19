@@ -19,8 +19,8 @@ class MessageClient:
         self._provider = provider or MessageProvider(os.getenv("MESSAGE_PROVIDER"))
         logger.debug(f"Provider: {self._provider.value}")
         module = importlib.import_module(f"serpens.{self._provider.value}")
-        self._publish = getattr(module, "publish_message", None)
-        self._publish_batch = getattr(module, "publish_message_batch", None)
+        self._publish = module.publish_message
+        self._publish_batch = module.publish_message_batch
 
     def publish(
         self,
