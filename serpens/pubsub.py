@@ -14,7 +14,8 @@ def publish_message(
     ordering_key: str = "",
     attributes: Optional[Dict[str, Any]] = None,
 ) -> str:
-    publisher = pubsub_v1.PublisherClient()
+    publisher_options = pubsub_v1.types.PublisherOptions(enable_message_ordering=bool(ordering_key))
+    publisher = pubsub_v1.PublisherClient(publisher_options=publisher_options)
 
     if not isinstance(data, str):
         data = json.dumps(data, cls=SchemaEncoder)
@@ -37,8 +38,11 @@ def publish_message(
 
 
 def publish_message_batch(topic: str, messages: List[Dict], ordering_key: str = "") -> List[str]:
+    publisher_options = pubsub_v1.types.PublisherOptions(enable_message_ordering=bool(ordering_key))
     batch_settings = pubsub_v1.types.BatchSettings(max_messages=MAX_BATCH_SIZE)
-    publisher = pubsub_v1.PublisherClient(batch_settings=batch_settings)
+    publisher = pubsub_v1.PublisherClient(
+        batch_settings=batch_settings, publisher_options=publisher_options
+    )
 
     futures = []
     endpoint = None
