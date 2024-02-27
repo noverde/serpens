@@ -29,7 +29,12 @@ class MessageClient:
         order_key: Optional[str] = None,
         attributes: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
-        return self._publish(destination, body, order_key, attributes)
+        response = self._publish(destination, body, order_key, attributes)
+
+        if isinstance(response, str):
+            response = {"MessageId": response}
+
+        return response
 
     def publish_batch(
         self, destination: str, messages: List[Any], order_key: Optional[str] = None
