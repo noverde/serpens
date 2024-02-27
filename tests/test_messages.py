@@ -94,14 +94,19 @@ class TestMessages(unittest.TestCase):
 
     @patch.dict(os.environ, {"MESSAGE_PROVIDER": "pubsub"})
     def test_publish_message_pubsub(self):
-        MessageClient().publish(self.destination, self.body, self.order_key, self.attributes)
+        self.pubsub_client.publish.return_value.result.return_value = "10580991169012026"
 
+        response = MessageClient().publish(
+            self.destination, self.body, self.order_key, self.attributes
+        )
         self.pubsub_client.publish.assert_called_once_with(
             self.destination,
             data=json.dumps(self.body).encode(),
             ordering_key=self.order_key,
             app_name="platform-default",
         )
+
+        self.assertIsInstance(response, dict)
 
     def test_publish_message_provider_improperly_configured(self):
         with self.assertRaises(ValueError):
