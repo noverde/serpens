@@ -26,9 +26,9 @@ class StorageClient:
         bucket: str,
         key: str,
     ) -> Dict[str, Any]:
-        response = self._get_object(bucket, key)
+        object = self._get_object(bucket, key)
 
-        return response
+        return object
 
     @classmethod
     def instance(cls):

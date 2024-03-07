@@ -19,11 +19,6 @@ class TestStorages(unittest.TestCase):
 
     @patch.dict(os.environ, {"STORAGE_PROVIDER": "s3"})
     def test_get_object_s3(self):
-        StorageClient.instance().get(
-            self.bucket, self.key
-        )
+        StorageClient.instance().get(self.bucket, self.key)
 
-        self.s3_client.get_object.assert_called_once_with(
-            Bucket=self.bucket,
-            Key=self.key
-        )
+        self.s3_client.get_object.assert_called_once_with(Bucket=self.bucket, Key=self.key)
