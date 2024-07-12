@@ -18,3 +18,12 @@ class TestCloudStorage(unittest.TestCase):
         self.assertIsNotNone(response)
         self.assertEqual(response.read(), b"abcdefghij")
         m_client.assert_called_once()
+
+    @patch("serpens.cloud_storage.storage")
+    def test_upload_object_succeeded(self, m_storage):
+        m_client = m_storage.Client
+        response = cloud_storage.upload_object(
+            "foo", "test-bucket", "teste.jpg", "image/jpeg", acl="private"
+        )
+        self.assertTrue(response)
+        m_client.assert_called_once()
