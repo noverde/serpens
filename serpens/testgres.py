@@ -10,7 +10,7 @@ default_stop_test_run = unittest.result.TestResult.stopTestRun
 
 database = None
 schema = None
-postgres_startup_delay = int(os.getenv("POSTGRES_STARTUP_DELAY", 1))
+testgres_startup_delay = int(os.getenv("TESTGRES_STARTUP_DELAY", 1))
 
 
 def docker_shell(cmd, output=True):
@@ -60,7 +60,7 @@ def docker_init():
     docker_start()
 
     while docker_pg_isready():
-        time.sleep(postgres_startup_delay)
+        time.sleep(testgres_startup_delay)
 
     docker_pg_user_path()
     port = docker_port()
