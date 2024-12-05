@@ -11,4 +11,4 @@ sentry-sdk==1.40.4
 yoyo-migrations==8.2.0
 elastic_apm==6.20.0
 google-cloud-pubsub==2.19.4
-google-cloud-storage==2.15.0
+google-cloud-storage==2.16.0
