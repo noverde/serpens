@@ -6,6 +6,7 @@ from functools import wraps
 from json.decoder import JSONDecodeError
 from typing import Any, Dict, Union
 from uuid import uuid4
+import os
 
 import boto3
 
@@ -18,6 +19,10 @@ initializers.setup()
 logger = logging.getLogger(__name__)
 
 MAX_BATCH_SIZE = 10
+
+
+def get_cloud_provider():
+    return os.getenv("CLOUD_PROVIDER", "aws")
 
 
 def build_message_attributes(attributes):
@@ -104,16 +109,25 @@ def handler(func):
     @wraps(func)
     def wrapper(event: dict, context: dict):
         logger.debug(f"Received data: {event}")
+        cloud_provider = get_cloud_provider()
         events_failed = []
+
         for data in event["Records"]:
             try:
                 result = func(Record(data))
-            except FilteredEvent:
+            except FilteredEvent as e:
                 elastic.set_transaction_result("failure", override=False)
-                events_failed.append({"itemIdentifier": data.get("messageId")})
+                elastic.capture_exception(e)
+                if cloud_provider == "aws":
+                    events_failed.append({"itemIdentifier": data.get("messageId")})
+                else:
+                    raise e
             else:
-                if isinstance(result, dict) and "messageId" in result:
-                    events_failed.append({"itemIdentifier": result["messageId"]})
+                if cloud_provider == "aws":
+                    if isinstance(result, dict) and "messageId" in result:
+                        events_failed.append({"itemIdentifier": result["messageId"]})
+                else:
+                    raise FilteredEvent(f"error pup/sub: {event}")
 
         if events_failed:
             result = {"batchItemFailures": events_failed}
