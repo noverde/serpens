@@ -106,8 +106,15 @@ def publish_message(queue_url, body, message_group_id=None, attributes=None):
 
 
 def handler(func):
+    """
+    Decorator to handle batch processing of events.
+    - Logs incoming data.
+    - Processes each record in the event.
+    - Handles exceptions and returns a list of failed items.
+    """
+
     @wraps(func)
-    def wrapper(event: dict, context: dict):
+    def wrapper(event: dict, _: dict):
         logger.debug(f"Received data: {event}")
         cloud_provider = get_cloud_provider()
         events_failed = []
@@ -118,16 +125,26 @@ def handler(func):
             except FilteredEvent as e:
                 elastic.set_transaction_result("failure", override=False)
                 elastic.capture_exception(e)
+
                 if cloud_provider == "aws":
                     events_failed.append({"itemIdentifier": data.get("messageId")})
                 else:
-                    raise e
+                    raise FilteredEvent(
+                        f"Unsupported cloud provider or invalid event data: {event}"
+                    )
+            except Exception as e:
+                logger.error(f"Unexpected error processing record {data}: {e}")
+                raise e
             else:
                 if cloud_provider == "aws":
                     if isinstance(result, dict) and "messageId" in result:
                         events_failed.append({"itemIdentifier": result["messageId"]})
+                    else:
+                        logger.warning("Result is not a dictionary or missing 'messageId'.")
                 else:
-                    raise FilteredEvent(f"error pup/sub: {event}")
+                    raise FilteredEvent(
+                        f"Unsupported cloud provider or invalid event data: {event}"
+                    )
 
         if events_failed:
             result = {"batchItemFailures": events_failed}
