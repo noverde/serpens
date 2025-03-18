@@ -134,13 +134,11 @@ def handler(func):
                     )
             except Exception as e:
                 logger.error(f"Unexpected error processing record {data}: {e}")
-                raise e
+                raise
             else:
                 if cloud_provider == "aws":
                     if isinstance(result, dict) and "messageId" in result:
                         events_failed.append({"itemIdentifier": result["messageId"]})
-                    else:
-                        logger.warning("Result is not a dictionary or missing 'messageId'.")
                 else:
                     raise FilteredEvent(
                         f"Unsupported cloud provider or invalid event data: {event}"
