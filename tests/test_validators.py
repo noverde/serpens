@@ -57,6 +57,8 @@ class TestValidateEmail(unittest.TestCase):
             "user name@domain.com",
             "hasasterisk*****@test.com",
             "hasasterisk.***@test.com",
+            "j*smith@gmail.com",
+            "********@gmail.com",
         )
         result = any(map(validators.validate_email, emails))
 
