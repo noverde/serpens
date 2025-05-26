@@ -169,6 +169,30 @@ class TestSQSHandler(unittest.TestCase):
         failure_items = [item["itemIdentifier"] for item in result["batchItemFailures"]]
         self.assertTrue(message_id in failure_items)
 
+        @sqs.handler
+        def handler2(message: Record):
+            return {"messageId": message_id}
+
+        result = handler2(self.event, self.context)
+
+        self.assertIsNotNone(result["batchItemFailures"])
+        failure_items = [item["itemIdentifier"] for item in result["batchItemFailures"]]
+        self.assertTrue(message_id in failure_items)
+
+        import os
+
+        os.environ["CLOUD_PROVIDER"] = "gcp"
+
+        with self.assertRaises(FilteredEvent) as err:
+            handler(self.event, self.context)
+
+        self.assertIn("Unsupported cloud provider or invalid event data", str(err.exception))
+
+        with self.assertRaises(FilteredEvent) as err:
+            handler2(self.event, self.context)
+
+        self.assertIn("Unsupported cloud provider or invalid event data", err.exception.args[0])
+
 
 class TestSQSRecord(unittest.TestCase):
     @classmethod
