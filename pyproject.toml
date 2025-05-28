@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "noverde-serpens"
-version = "2.7.1-rc"
+version = "2.7.1"
 description = "A set of Python utilities, recipes and snippets"
 readme = {file = "README.md", content-type = "text/markdown"}
 authors = [
