@@ -4,6 +4,7 @@ import numbers
 from datetime import datetime
 from functools import wraps
 from json.decoder import JSONDecodeError
+import traceback
 from typing import Any, Dict, Union
 from uuid import uuid4
 import os
@@ -122,27 +123,28 @@ def handler(func):
         for data in event["Records"]:
             try:
                 result = func(Record(data))
-            except FilteredEvent as e:
-                elastic.set_transaction_result("failure", override=False)
-                elastic.capture_exception(e)
-
-                if cloud_provider == "aws":
-                    events_failed.append({"itemIdentifier": data.get("messageId")})
-                else:
-                    raise FilteredEvent(
-                        f"Unsupported cloud provider or invalid event data: {event}"
-                    )
             except Exception as e:
-                logger.error(f"Unexpected error processing record {data}: {e}")
-                raise
+                logger.error(f"Error processing record {data}: {e}\n{traceback.format_exc()}")
+
+                if isinstance(e, FilteredEvent):
+                    elastic.set_transaction_result("failure", override=False)
+                    elastic.capture_exception(e)
+
+                    if cloud_provider == "aws":
+                        events_failed.append({"itemIdentifier": data.get("messageId")})
+                    else:
+                        raise FilteredEvent(
+                            f"Unsupported cloud provider or invalid event data: {event}"
+                        )
+                else:
+                    # Relevanta a exceção original para não mascarar
+                    raise
             else:
                 if cloud_provider == "aws":
                     if isinstance(result, dict) and "messageId" in result:
                         events_failed.append({"itemIdentifier": result["messageId"]})
                 else:
-                    raise FilteredEvent(
-                        f"Unsupported cloud provider or invalid event data: {event}"
-                    )
+                    raise
 
         if events_failed:
             result = {"batchItemFailures": events_failed}
