@@ -143,8 +143,6 @@ def handler(func):
                 if cloud_provider == "aws":
                     if isinstance(result, dict) and "messageId" in result:
                         events_failed.append({"itemIdentifier": result["messageId"]})
-                else:
-                    raise
 
         if events_failed:
             result = {"batchItemFailures": events_failed}

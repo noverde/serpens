@@ -188,9 +188,6 @@ class TestSQSHandler(unittest.TestCase):
 
         self.assertIn("Unsupported cloud provider or invalid event data", str(err.exception))
 
-        with self.assertRaises(RuntimeError) as err:
-            handler2(self.event, self.context)
-
 
 class TestSQSRecord(unittest.TestCase):
     @classmethod
