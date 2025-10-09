@@ -12,7 +12,6 @@ default_stop_test_run = unittest.result.TestResult.stopTestRun
 database = None
 schema = None
 testgres_startup_delay = int(os.getenv("TESTGRES_STARTUP_DELAY", 1))
-# Ensure each test run uses a unique container name to avoid collisions.
 container_name = f"testgres_{uuid.uuid4().hex}"
 
 
