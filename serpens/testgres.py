@@ -3,6 +3,7 @@ import shlex
 import subprocess
 import time
 import unittest
+import uuid
 
 # start and stop run functions so we can call it later
 default_start_test_run = unittest.result.TestResult.startTestRun
@@ -11,6 +12,7 @@ default_stop_test_run = unittest.result.TestResult.stopTestRun
 database = None
 schema = None
 testgres_startup_delay = int(os.getenv("TESTGRES_STARTUP_DELAY", 1))
+container_name = f"testgres_{uuid.uuid4().hex}"
 
 
 def docker_shell(cmd, output=True):
@@ -22,18 +24,18 @@ def docker_shell(cmd, output=True):
 
 def docker_start():
     imgname = "postgres:13"
-    cmdargs = "-d --rm --name testgres"
+    cmdargs = f"-d --rm --name {container_name}"
     envvars = "-e POSTGRES_USER=testgres -e POSTGRES_PASSWORD=testgres"
     publish = "-p 5432"
     return docker_shell(f"docker run {cmdargs} {publish} {envvars} {imgname}")
 
 
 def docker_stop():
-    return docker_shell("docker stop testgres", output=False)
+    return docker_shell(f"docker stop {container_name}", output=False)
 
 
 def docker_pg_isready():
-    return docker_shell("docker exec testgres pg_isready").returncode
+    return docker_shell(f"docker exec {container_name} pg_isready").returncode
 
 
 def docker_pg_user_path():
@@ -44,11 +46,11 @@ def docker_pg_user_path():
     set_search_path = f"ALTER USER testgres SET search_path = {schema}"
     cmd = f"psql -U testgres -d testgres -c '{create_schema}' -c '{set_search_path}'"
 
-    return docker_shell(f"docker exec testgres {cmd}", output=False).returncode
+    return docker_shell(f"docker exec {container_name} {cmd}", output=False).returncode
 
 
 def docker_port():
-    stdout = docker_shell("docker port testgres").stdout
+    stdout = docker_shell(f"docker port {container_name}").stdout
     result = stdout.split("\n")[0]
     return result.split(":")[1]
 

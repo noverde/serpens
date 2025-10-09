@@ -58,6 +58,7 @@ class TestTestgres(unittest.TestCase):
         result = docker_pg_isready()
         self.assertEqual(result, 2)
 
+    @patch("serpens.testgres.container_name", "testgres")
     @patch("serpens.testgres.schema", "testgres")
     def test_docker_pg_user_path(self):
         cmd_base = "docker exec testgres psql -U testgres -d testgres -c "
@@ -77,6 +78,7 @@ class TestTestgres(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertEqual(self.mrun.call_args, expected_call_args)
 
+    @patch("serpens.testgres.container_name", "testgres")
     @patch("serpens.testgres.schema", "test,loans")
     def test_docker_pg_user_multiple_schemas(self):
         cmd_base = "docker exec testgres psql -U testgres -d testgres -c "
