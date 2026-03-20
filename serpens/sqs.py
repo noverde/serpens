@@ -1,13 +1,12 @@
 import json
 import logging
 import numbers
+import os
 from datetime import datetime
 from functools import wraps
 from json.decoder import JSONDecodeError
-import traceback
 from typing import Any, Dict, Union
 from uuid import uuid4
-import os
 
 import boto3
 
@@ -116,28 +115,37 @@ def handler(func):
 
     @wraps(func)
     def wrapper(event: dict, _: dict):
-        logger.debug(f"Received data: {event}")
+        logger.debug("Received data: %s", event)
         cloud_provider = get_cloud_provider()
         events_failed = []
 
         for data in event["Records"]:
             try:
                 result = func(Record(data))
-            except Exception as e:
-                logger.error(f"Error processing record {data}: {e}\n{traceback.format_exc()}")
-
-                if isinstance(e, FilteredEvent):
+            except Exception as error:
+                if isinstance(error, FilteredEvent):
+                    logger.warning(
+                        "Filtered event while processing record %s on %s: %s",
+                        data.get("messageId"),
+                        cloud_provider,
+                        error,
+                        exc_info=True,
+                    )
                     elastic.set_transaction_result("failure", override=False)
-                    elastic.capture_exception(e)
+                    elastic.capture_exception(error)
 
                     if cloud_provider == "aws":
                         events_failed.append({"itemIdentifier": data.get("messageId")})
                     else:
-                        raise FilteredEvent(
-                            f"Unsupported cloud provider or invalid event data: {event}"
-                        )
+                        raise
                 else:
-                    # Relevanta a exceção original para não mascarar
+                    logger.error(
+                        "Error processing record %s on %s: %s",
+                        data,
+                        cloud_provider,
+                        error,
+                        exc_info=True,
+                    )
                     raise
             else:
                 if cloud_provider == "aws":

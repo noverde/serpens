@@ -186,7 +186,7 @@ class TestSQSHandler(unittest.TestCase):
         with self.assertRaises(FilteredEvent) as err:
             handler(self.event, self.context)
 
-        self.assertIn("Unsupported cloud provider or invalid event data", str(err.exception))
+        self.assertEqual("Error", str(err.exception))
 
 
 class TestSQSRecord(unittest.TestCase):
