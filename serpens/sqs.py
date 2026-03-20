@@ -123,6 +123,9 @@ def handler(func):
             try:
                 result = func(Record(data))
             except Exception as error:
+                elastic.set_transaction_result("failure", override=False)
+                elastic.capture_exception(error)
+
                 if isinstance(error, FilteredEvent):
                     logger.warning(
                         "Filtered event while processing record %s on %s: %s",
@@ -131,8 +134,6 @@ def handler(func):
                         error,
                         exc_info=True,
                     )
-                    elastic.set_transaction_result("failure", override=False)
-                    elastic.capture_exception(error)
 
                     if cloud_provider == "aws":
                         events_failed.append({"itemIdentifier": data.get("messageId")})
