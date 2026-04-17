@@ -117,17 +117,20 @@ class TestTestgres(unittest.TestCase):
         self.mrun.return_value.stdout = "foobar:65432"
         mpgs.side_effect = [1, 0]
         result = docker_init()
-        self.assertEqual(result, "postgres://testgres:testgres@localhost:65432/testgres")
+        self.assertEqual(result, "postgresql+psycopg2://testgres:testgres@localhost:65432/testgres")
 
     @patch("serpens.testgres.docker_init")
     @patch("serpens.testgres.database")
     def test_start_test_run(self, mdb, mdi):
-        expected_uri = "postgres://testgres:testgres@localhost:65432/testgres"
+        expected_uri = "postgresql+psycopg2://testgres:testgres@localhost:65432/testgres"
         mdi.return_value = expected_uri
-        start_test_run(None)
 
-        mdb.bind.assert_called_with(expected_uri, mapping=True)
-        self.assertEqual(mdb.create_tables.call_count, 1)
+        mbase = Mock()
+        with patch("serpens.testgres.base", mbase):
+            start_test_run(None)
+
+        mdb.bind.assert_called_with(expected_uri)
+        mbase.metadata.create_all.assert_called_once()
 
     @patch("serpens.testgres.docker_init", Mock())
     @patch("serpens.testgres.database")
@@ -139,10 +142,12 @@ class TestTestgres(unittest.TestCase):
         self.assertEqual(self.mprint.call_count, 1)
 
     @patch("serpens.testgres.default_stop_test_run")
-    def test_stop_test_run(self, mrun):
+    @patch("serpens.testgres.database")
+    def test_stop_test_run(self, mdb, mrun):
         mrun.return_value = None
         result = stop_test_run(None)
         self.assertIsNone(result)
+        mdb.dispose.assert_called_once()
 
     @patch("serpens.testgres.unittest")
     def test_setup_without_database_url(self, munit):
@@ -151,7 +156,7 @@ class TestTestgres(unittest.TestCase):
         if "DATABASE_URL" in os.environ:
             db_url = os.environ.pop("DATABASE_URL")
 
-        setup("")
+        setup(Mock())
 
         self.assertEqual(munit.result.TestResult.startTestRun, start_test_run)
         self.assertEqual(munit.result.TestResult.stopTestRun, stop_test_run)
@@ -159,17 +164,20 @@ class TestTestgres(unittest.TestCase):
         if db_url:
             os.environ["DATABASE_URL"] = db_url
 
-    def test_setup_with_database_url(self):
+    @patch("serpens.testgres.database")
+    def test_setup_with_database_url(self, mdb):
         db_url = os.environ.get("DATABASE_URL")
 
         if not db_url:
-            os.environ["DATABASE_URL"] = "postgres://testgres:testgres@localhost:55432/testgres"
+            os.environ["DATABASE_URL"] = (
+                "postgresql+psycopg2://testgres:testgres@localhost:55432/testgres"
+            )
 
-        mdb = Mock()
+        mbase = Mock()
+        setup(mbase)
 
-        setup(mdb)
-
-        self.assertEqual(mdb.create_tables.call_count, 1)
+        mdb.bind.assert_called_once()
+        mbase.metadata.create_all.assert_called_once()
 
         if db_url:
             os.environ["DATABASE_URL"] = db_url

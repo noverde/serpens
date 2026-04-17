@@ -1,110 +1,165 @@
-import os
 import unittest
+from unittest.mock import MagicMock, patch
 
-from unittest.mock import patch
+from sqlalchemy import Column, Integer, String
 
-from pony.orm.core import db_session, PrimaryKey, Required
+from serpens import database
+from serpens.database import Base, EntityMixin, current_session, db_session
 
-from serpens.database import Database
+
+class _Item(EntityMixin, Base):
+    __tablename__ = "item"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
 
 
 class TestDatabase(unittest.TestCase):
-    def test_parse_uri_postgres(self):
-        uri = "postgres://postgres:postgres@postgres/postgres"
-        result = Database._parse_uri(uri)
-        self.assertEqual(result, ("postgres", uri))
+    def setUp(self):
+        database.dispose()
 
-    def test_parse_uri_sqlite(self):
-        result = Database._parse_uri("sqlite://test.db")
-        self.assertEqual(result, ("sqlite", "test.db"))
+        self.engine = database.bind("sqlite:///:memory:")
+        Base.metadata.create_all(self.engine)
 
-    def test_parse_uri_sqlite_memory(self):
-        result = Database._parse_uri("sqlite://:memory:")
-        self.assertEqual(result, ("sqlite", ":memory:"))
+    def tearDown(self):
+        database.dispose()
 
-    def test_parse_uri_empty_uri(self):
+    def test_current_session_outside_scope_is_none(self):
+        self.assertIsNone(current_session())
+
+    def test_db_session_context_manager_commits(self):
+        with db_session as sess:
+            self.assertIsNotNone(sess)
+            self.assertIs(current_session(), sess)
+
+        self.assertIsNone(current_session())
+
+    def test_db_session_nested_reuses_session(self):
+        with db_session as outer:
+            with db_session as inner:
+                self.assertIs(outer, inner)
+
+        self.assertIsNone(current_session())
+
+    def test_db_session_decorator(self):
+        captured = {}
+
+        @db_session
+        def handler():
+            captured["session"] = current_session()
+
+        handler()
+
+        self.assertIsNotNone(captured["session"])
+        self.assertIsNone(current_session())
+
+    def test_db_session_rollback_on_exception(self):
         with self.assertRaises(ValueError):
-            Database._parse_uri("")
+            with db_session:
+                _Item(name="fail")
+                raise ValueError("boom")
 
-    def test_parse_uri_invalid_uri(self):
-        with self.assertRaises(ValueError):
-            Database._parse_uri("xxx")
+        with db_session as sess:
+            self.assertEqual(sess.query(_Item).count(), 0)
 
-    @db_session
-    def test_database_instance(self):
-        db = Database("sqlite://:memory:")
-        db.execute("CREATE TABLE foo (id int, bar text)")
-        db.execute("INSERT INTO foo (id, bar) VALUES (1, 'test')")
+    def test_entity_mixin_requires_active_session(self):
+        with self.assertRaises(RuntimeError):
+            _Item(name="orphan")
 
-        result = db.get("SELECT * FROM foo WHERE id = 1")
+    def test_entity_mixin_persists_in_session(self):
+        with db_session:
+            item = _Item(name="foo")
+            self.assertIsNotNone(item.id)
 
+        with db_session as sess:
+            persisted = sess.query(_Item).filter_by(name="foo").first()
+            self.assertIsNotNone(persisted)
+
+    def test_entity_mixin_get(self):
+        with db_session:
+            _Item(name="foo")
+
+        result = _Item.get(name="foo")
         self.assertIsNotNone(result)
-        self.assertEqual(result.id, 1)
-        self.assertEqual(result.bar, "test")
+        self.assertEqual(result.name, "foo")
 
-    def test_database_instance_no_uri(self):
-        db = Database()
-        self.assertIsInstance(db, Database)
+    def test_entity_mixin_select_first(self):
+        with db_session:
+            _Item(name="a")
+            _Item(name="b")
 
-    def test_database_instance_empty_uri(self):
-        with self.assertRaises(ValueError):
-            Database("")
+        result = _Item.select(name="a").first()
+        self.assertIsNotNone(result)
+        self.assertEqual(result.name, "a")
 
-    def test_database_instance_invalid_uri(self):
-        with self.assertRaises(ValueError):
-            Database("xxx")
+    def test_entity_mixin_select_all(self):
+        with db_session:
+            _Item(name="a")
+            _Item(name="b")
 
-    @db_session
-    def test_database_bind(self):
-        db = Database()
-        self.assertIsInstance(db, Database)
+        result = _Item.select().all()
+        self.assertEqual(len(result), 2)
 
-        db.bind("sqlite://:memory:")
-        result = db.get("SELECT 1")
-        self.assertEqual(result, 1)
+    def test_entity_mixin_select_iter(self):
+        with db_session:
+            _Item(name="a")
+            _Item(name="b")
 
-    @db_session
-    def test_database_bind_exception(self):
-        db = Database()
-        self.assertIsInstance(db, Database)
+        names = sorted(i.name for i in _Item.select())
+        self.assertEqual(names, ["a", "b"])
 
-        with self.assertRaises(ValueError):
-            db.bind("")
+    def test_entity_mixin_select_delete(self):
+        with db_session:
+            _Item(name="a")
+            _Item(name="b")
 
-    @db_session
-    def test_database_default_bind(self):
-        db = Database()
-        self.assertIsInstance(db, Database)
+        _Item.select().delete()
 
-        os.environ["DATABASE_URL"] = "sqlite://:memory:"
-        db.bind()
-        result = db.get("SELECT 1")
-        self.assertEqual(result, 1)
+        with db_session as sess:
+            self.assertEqual(sess.query(_Item).count(), 0)
 
-    @db_session
-    @patch("envvars.parameters.get")
-    def test_database_default_bind_from_parameters(self, mock_params):
-        mock_params.return_value = "sqlite://:memory:"
+    def test_entity_mixin_to_dict(self):
+        with db_session:
+            item = _Item(name="foo")
+            result = item.to_dict()
 
-        db = Database()
-        self.assertIsInstance(db, Database)
+        self.assertEqual(result["name"], "foo")
+        self.assertIn("id", result)
 
-        os.environ["DATABASE_URL"] = "parameters:///my-project/database_url"
-        db.bind(mapping=True)
-        result = db.get("SELECT 1")
-        self.assertEqual(result, 1)
 
-    @db_session
-    def test_database_bind_with_mapping(self):
-        db = Database()
-        self.assertIsInstance(db, Database)
+class TestBindDispose(unittest.TestCase):
+    def setUp(self):
+        database.dispose()
 
-        class TestTable(db.Entity):
-            _table_ = "test"
+    def tearDown(self):
+        database.dispose()
 
-            id = PrimaryKey(int, auto=True)
-            name = Required(str)
+    def test_bind_is_idempotent_without_url(self):
+        engine1 = database.bind("sqlite:///:memory:")
+        engine2 = database.bind()
+        self.assertIs(engine1, engine2)
 
-        db.bind("sqlite://:memory:", mapping=True)
-        result = db.get("SELECT 1")
-        self.assertEqual(result, 1)
+    def test_bind_rebinds_when_url_provided(self):
+        engine1 = database.bind("sqlite:///:memory:")
+        engine2 = database.bind("sqlite:///:memory:")
+        self.assertIsNot(engine1, engine2)
+
+    def test_bind_normalizes_postgres_scheme(self):
+        with (
+            patch("serpens.database.create_engine") as mcreate,
+            patch("serpens.database.event"),
+        ):
+            mcreate.return_value = MagicMock()
+            database.bind("postgres://user:pass@host/db")
+            called_url = mcreate.call_args.args[0]
+            self.assertTrue(called_url.startswith("postgresql+psycopg2://"))
+
+    def test_dispose_noop_when_not_bound(self):
+        database.dispose()
+        self.assertIsNone(database._engine)
+
+    def test_dispose_clears_engine(self):
+        database.bind("sqlite:///:memory:")
+        database.dispose()
+        self.assertIsNone(database._engine)
+        self.assertIsNone(database._SessionLocal)

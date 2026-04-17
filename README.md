@@ -194,17 +194,40 @@ path = "/path/to/migrations" # yoyo migrations
 database.migrate(database_url, path)
 ```
 
-##### Create a Pony Database instance
+##### Declare models and open sessions
 
-"*The Database object manages database connections using a connection pool.*"
+The `database` module wraps SQLAlchemy with a Pony-like ergonomic layer:
+a declarative `Base`, an `EntityMixin` that auto-attaches instances to the
+current session, and a `db_session` that works as both context manager and
+decorator.
 
 ```python
-from serpens import database
+from sqlalchemy import Column, Integer, String
+from serpens.database import Base, EntityMixin, db_session
 
-database_url = "postgres://user:password@host/db"
-db = database.setup(database_url)
-print(db.provider_name)
+
+class User(EntityMixin, Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+
+
+@db_session
+def create_user(name):
+    return User(name=name)
+
+
+with db_session:
+    user = User.get(name="Ana")
 ```
+
+Connection pooling, keepalives and Postgres session timeouts
+(`statement_timeout`, `lock_timeout`, `idle_in_transaction_session_timeout`)
+are configured through environment variables (`DB_POOL_SIZE`,
+`DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT`, `DB_POOL_RECYCLE`,
+`DB_STATEMENT_TIMEOUT_MS`, `DB_LOCK_TIMEOUT_MS`,
+`DB_IDLE_IN_TX_TIMEOUT_MS`, `DB_ECHO`).
 
 ## DynamoDB Documents
 

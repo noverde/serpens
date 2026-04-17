@@ -1,10 +1,8 @@
 import os
+import sqlite3
 import unittest
 
-from pony.orm.core import db_session
-
 from serpens import migrations
-from serpens import database
 
 
 class TestMigrations(unittest.TestCase):
@@ -21,28 +19,31 @@ class TestMigrations(unittest.TestCase):
         if os.path.exists(cls.database_file):
             os.remove(cls.database_file)
 
-    @db_session
+    def _fetch_row(self, database_file, row_id):
+        conn = sqlite3.connect(database_file)
+        try:
+            cursor = conn.execute("SELECT id, name FROM test WHERE id = ?", (row_id,))
+            return cursor.fetchone()
+        finally:
+            conn.close()
+
     def test_migrate(self):
         migrations.migrate(f"sqlite:///{self.database_file}", self.migrations_path)
 
-        db = database.Database(f"sqlite://{self.database_file}")
-
-        result = db.get("SELECT * FROM test WHERE id = 1")
+        result = self._fetch_row(self.database_file, 1)
 
         self.assertIsNotNone(result)
-        self.assertEqual(result.id, 1)
-        self.assertEqual(result.name, "John")
+        self.assertEqual(result[0], 1)
+        self.assertEqual(result[1], "John")
 
-    @db_session
     def test_migrate_handler(self):
         os.environ["DATABASE_URL"] = f"sqlite:///{self.database_file}"
         os.environ["DATABASE_MIGRATIONS_PATH"] = self.migrations_path
 
         migrations.migrate_handler(None, None)
 
-        db = database.Database(f"sqlite://{self.database_file}")
-        result = db.get("SELECT * FROM test WHERE id = 1")
+        result = self._fetch_row(self.database_file, 1)
 
         self.assertIsNotNone(result)
-        self.assertEqual(result.id, 1)
-        self.assertEqual(result.name, "John")
+        self.assertEqual(result[0], 1)
+        self.assertEqual(result[1], "John")

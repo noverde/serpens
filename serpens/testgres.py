@@ -5,13 +5,16 @@ import time
 import unittest
 import uuid
 
+from serpens import database
+
 # start and stop run functions so we can call it later
 default_start_test_run = unittest.result.TestResult.startTestRun
 default_stop_test_run = unittest.result.TestResult.stopTestRun
 
-database = None
+base = None
 schema = None
 testgres_startup_delay = int(os.getenv("TESTGRES_STARTUP_DELAY", 1))
+testgres_startup_timeout = int(os.getenv("TESTGRES_STARTUP_TIMEOUT", 30))
 container_name = f"testgres_{uuid.uuid4().hex}"
 
 
@@ -61,41 +64,47 @@ def docker_init():
     docker_stop()
     docker_start()
 
+    deadline = time.monotonic() + testgres_startup_timeout
     while docker_pg_isready():
+        if time.monotonic() > deadline:
+            raise RuntimeError(f"postgres did not become ready within {testgres_startup_timeout}s")
         time.sleep(testgres_startup_delay)
 
     docker_pg_user_path()
     port = docker_port()
 
-    return f"postgres://testgres:testgres@localhost:{port}/testgres"
+    return f"postgresql+psycopg2://testgres:testgres@localhost:{port}/testgres"
 
 
 def start_test_run(self):
     try:
         uri = docker_init()
-
-        database.bind(uri, mapping=True)
-        database.create_tables()
-
+        engine = database.bind(uri)
+        base.metadata.create_all(engine)
         default_start_test_run(self)
     except Exception as e:
         print(str(e))
 
 
 def stop_test_run(self):
-    docker_stop()
-    default_stop_test_run(self)
+    try:
+        database.dispose()
+    finally:
+        docker_stop()
+        default_stop_test_run(self)
 
 
-def setup(db, uri=None, default_schema=None):
+def setup(declarative_base, uri=None, default_schema=None):
     if uri is None:
         uri = os.environ.get("DATABASE_URL")
 
     if uri:
-        return db.create_tables()
+        engine = database.bind(uri)
+        declarative_base.metadata.create_all(engine)
+        return
 
-    global database, schema
-    database = db
+    global base, schema
+    base = declarative_base
     schema = default_schema
     unittest.result.TestResult.startTestRun = start_test_run
     unittest.result.TestResult.stopTestRun = stop_test_run
