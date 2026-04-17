@@ -6,6 +6,8 @@ A set of Python utilities, recipes and snippets.
 - [API Utilities](#api-utilities)
 - [Schema](#schema)
 - [CSV Utils](#csv-utils)
+- [Database](#database)
+- [Migrations](#migrations)
 - [DynamoDB Documents](#dynamodb-documents)
 
 ## SQS Utilities
@@ -59,7 +61,7 @@ def lambda_handler(request: api.Request):
 
 #### *Request class*
 
-- The function that will process the lambda will receive an instance of *sqs.Request* dataclass. This class has the follow structure:
+- The function that will process the lambda will receive an instance of *api.Request* dataclass. This class has the follow structure:
 
 ```python
 from serpens.api import AttrDict
@@ -179,55 +181,126 @@ del writer
 
 ## Database
 
-This utilities are useful for working with database.
+- A thin layer on top of SQLAlchemy 2.0 that keeps a Pony-like ergonomic API while exposing SA 2.0 power.
 
-##### Migrate databases
-
-- This migrations use yoyo-migration.
+##### Declare models
 
 ```python
-from serpens import database
-
-database_url = "postgres://user:password@host/db"
-path = "/path/to/migrations" # yoyo migrations
-
-database.migrate(database_url, path)
-```
-
-##### Declare models and open sessions
-
-The `database` module wraps SQLAlchemy with a Pony-like ergonomic layer:
-a declarative `Base`, an `EntityMixin` that auto-attaches instances to the
-current session, and a `db_session` that works as both context manager and
-decorator.
-
-```python
-from sqlalchemy import Column, Integer, String
-from serpens.database import Base, EntityMixin, db_session
+from serpens.database import Base, EntityMixin, TimestampMixin, Integer, Mapped, String, mapped_column
 
 
-class User(EntityMixin, Base):
+class User(EntityMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+```
+
+TimestampMixin adds created_at and updated_at, refreshing updated_at on every UPDATE.
+
+##### Open sessions
+
+- db_session works as context manager and decorator. Nested calls reuse the outermost session.
+
+```python
+from serpens.database import db_session
+
+
+with db_session:
+    user = User.get(name="Ana")
 
 
 @db_session
 def create_user(name):
     return User(name=name)
-
-
-with db_session:
-    user = User.get(name="Ana")
 ```
 
-Connection pooling, keepalives and Postgres session timeouts
-(`statement_timeout`, `lock_timeout`, `idle_in_transaction_session_timeout`)
-are configured through environment variables (`DB_POOL_SIZE`,
-`DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT`, `DB_POOL_RECYCLE`,
-`DB_STATEMENT_TIMEOUT_MS`, `DB_LOCK_TIMEOUT_MS`,
-`DB_IDLE_IN_TX_TIMEOUT_MS`, `DB_ECHO`).
+##### Query with select()
+
+- select, insert, update, delete, func, text, bindparam and loading strategies (joinedload, selectinload, contains_eager) are re-exported.
+
+```python
+from serpens.database import db_session, select
+
+
+with db_session as sess:
+    stmt = select(User).where(User.name.like("A%")).order_by(User.created_at.desc())
+    users = sess.scalars(stmt).all()
+```
+
+- EntityMixin offers a Pony-style shortcut:
+
+```python
+user = User.get(name="Ana")
+matches = User.select(active=True).order_by(User.name).all()
+```
+
+##### Bulk insert
+
+```python
+from serpens.database import bulk_insert
+
+bulk_insert(User, [{"name": "Ana"}, {"name": "Bia"}, {"name": "Caio"}])
+```
+
+##### Async sessions
+
+- async_db_session mirrors db_session. Works as async with and decorator.
+
+```python
+from serpens.database import async_bind, async_db_session, current_async_session, select
+
+
+async_bind("postgresql://user:pw@host/db")
+
+
+@async_db_session
+async def fetch_user(user_id):
+    sess = current_async_session()
+    stmt = select(User).where(User.id == user_id)
+    return (await sess.scalars(stmt)).first()
+```
+
+- Requires asyncpg for Postgres or aiosqlite for SQLite.
+
+##### Configuration
+
+- Engine tuning is read from environment variables.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| DATABASE_URL | — | Connection string (supports postgres:// and postgresql://) |
+| DB_POOL_SIZE | 10 | Base connection pool size |
+| DB_MAX_OVERFLOW | 20 | Extra connections beyond pool_size |
+| DB_POOL_TIMEOUT | 10 | Seconds to wait for a free connection before failing |
+| DB_POOL_RECYCLE | 1800 | Recycle connections older than N seconds |
+| DB_STATEMENT_TIMEOUT_MS | 5000 | Postgres statement_timeout per session |
+| DB_LOCK_TIMEOUT_MS | 2000 | Postgres lock_timeout per session |
+| DB_IDLE_IN_TX_TIMEOUT_MS | 10000 | Postgres idle_in_transaction_session_timeout |
+| DB_ECHO | false | Log every SQL statement (debug only) |
+
+- Keepalives for Cloud SQL are applied automatically on Postgres connections.
+- For AWS Lambda, set DB_POOL_SIZE=1 and DB_MAX_OVERFLOW=0 — Lambda does not reuse the pool across concurrent containers.
+
+## Migrations
+
+- Schema evolution with yoyo-migrations.
+
+```python
+from serpens import migrations
+
+database_url = "postgres://user:password@host/db"
+path = "/path/to/migrations"
+
+migrations.migrate(database_url, path)
+```
+
+- A ready-made Lambda handler reads DATABASE_URL and DATABASE_MIGRATIONS_PATH from the environment:
+
+```python
+# in template.yml / SAM
+Handler: serpens.migrations.migrate_handler
+```
 
 ## DynamoDB Documents
 
