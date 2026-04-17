@@ -1,27 +1,99 @@
+import asyncio
 import os
 from contextvars import ContextVar
+from datetime import datetime
 from functools import wraps
 from typing import Tuple, TypeVar
 
-from sqlalchemy import create_engine, desc, event
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    bindparam,
+    create_engine,
+    delete,
+    desc,
+    event,
+    func,
+    insert,
+    select,
+    text,
+    update,
+)
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    Session,
+    contains_eager,
+    joinedload,
+    mapped_column,
+    relationship,
+    selectinload,
+    sessionmaker,
+)
 
 from serpens import envvars
 
 
 __all__ = [
+    # core session API (kept for backward compatibility)
     "Base",
     "EntityMixin",
+    "TimestampMixin",
     "bind",
     "current_session",
     "db_session",
-    "desc",
     "dispose",
+    "bulk_insert",
+    # async API
+    "async_bind",
+    "async_db_session",
+    "async_dispose",
+    "current_async_session",
+    # sqlalchemy re-exports
+    "Boolean",
+    "Column",
+    "Date",
+    "DateTime",
+    "ForeignKey",
+    "Integer",
+    "Mapped",
+    "Numeric",
+    "String",
+    "Text",
+    "UniqueConstraint",
+    "bindparam",
+    "contains_eager",
+    "delete",
+    "desc",
+    "func",
+    "insert",
+    "joinedload",
+    "mapped_column",
+    "relationship",
+    "select",
+    "selectinload",
+    "text",
+    "update",
 ]
 
 
 _engine = None
 _SessionLocal = None
+_async_engine = None
+_AsyncSessionLocal = None
 
 
 def _app_name():
@@ -45,19 +117,11 @@ def _on_connect(dbapi_connection, _):
         cursor.close()
 
 
-def bind(url=None):
-    global _engine, _SessionLocal
-    if _engine is not None and url is None:
-        return _engine
-    if _engine is not None:
-        _engine.dispose()
-        _engine = None
-        _SessionLocal = None
+def _is_postgres(url):
+    return bool(url) and url.startswith("postgresql")
 
-    url = url or envvars.get("DATABASE_URL")
-    if url and url.startswith("postgres://"):
-        url = "postgresql+psycopg2://" + url.removeprefix("postgres://")
 
+def _pool_kwargs(url):
     kwargs = {
         "echo": os.getenv("DB_ECHO", "").lower() in ("1", "true", "yes"),
     }
@@ -83,15 +147,28 @@ def bind(url=None):
             "keepalives_count": 3,
         }
 
+    return kwargs, connect_args
+
+
+def bind(url=None):
+    global _engine, _SessionLocal
+    if _engine is not None and url is None:
+        return _engine
+    if _engine is not None:
+        _engine.dispose()
+        _engine = None
+        _SessionLocal = None
+
+    url = url or envvars.get("DATABASE_URL")
+    if url and url.startswith("postgres://"):
+        url = "postgresql+psycopg2://" + url.removeprefix("postgres://")
+
+    kwargs, connect_args = _pool_kwargs(url)
     _engine = create_engine(url, connect_args=connect_args, **kwargs)
     if _is_postgres(url):
         event.listen(_engine, "connect", _on_connect)
     _SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False, autoflush=False)
     return _engine
-
-
-def _is_postgres(url):
-    return bool(url) and url.startswith("postgresql")
 
 
 def dispose():
@@ -103,13 +180,61 @@ def dispose():
     _SessionLocal = None
 
 
+def _async_url(url):
+    if url and url.startswith("postgres://"):
+        url = "postgresql+asyncpg://" + url.removeprefix("postgres://")
+    elif url and url.startswith("postgresql://"):
+        url = "postgresql+asyncpg://" + url.removeprefix("postgresql://")
+    elif url and url.startswith("postgresql+psycopg2://"):
+        url = "postgresql+asyncpg://" + url.removeprefix("postgresql+psycopg2://")
+    elif url and url.startswith("sqlite://"):
+        url = "sqlite+aiosqlite://" + url.removeprefix("sqlite://")
+    return url
+
+
+def async_bind(url=None):
+    global _async_engine, _AsyncSessionLocal
+    if _async_engine is not None and url is None:
+        return _async_engine
+    if _async_engine is not None:
+        asyncio.run(_async_engine.dispose())
+        _async_engine = None
+        _AsyncSessionLocal = None
+
+    url = _async_url(url or envvars.get("DATABASE_URL"))
+    kwargs, _ = _pool_kwargs(url)
+    _async_engine = create_async_engine(url, **kwargs)
+    _AsyncSessionLocal = async_sessionmaker(
+        bind=_async_engine, expire_on_commit=False, autoflush=False, class_=AsyncSession
+    )
+    return _async_engine
+
+
+async def async_dispose():
+    global _async_engine, _AsyncSessionLocal
+    if _async_engine is None:
+        return
+    await _async_engine.dispose()
+    _async_engine = None
+    _AsyncSessionLocal = None
+
+
 T = TypeVar("T")
 _Frame = Tuple[Session, bool]
+_AsyncFrame = Tuple[AsyncSession, bool]
 _stack_var: ContextVar[Tuple[_Frame, ...]] = ContextVar("_db_session_stack", default=())
+_async_stack_var: ContextVar[Tuple[_AsyncFrame, ...]] = ContextVar(
+    "_async_db_session_stack", default=()
+)
 
 
 def current_session():
     stack = _stack_var.get()
+    return stack[-1][0] if stack else None
+
+
+def current_async_session():
+    stack = _async_stack_var.get()
     return stack[-1][0] if stack else None
 
 
@@ -156,7 +281,51 @@ class _DbSession:
             session.close()
 
 
+class _AsyncDbSession:
+    def __call__(self, fn):
+        @wraps(fn)
+        async def wrapper(*args, **kwargs):
+            async with self:
+                return await fn(*args, **kwargs)
+
+        return wrapper
+
+    async def __aenter__(self):
+        stack = _async_stack_var.get()
+        if stack:
+            session = stack[-1][0]
+            _async_stack_var.set(stack + ((session, False),))
+            return session
+
+        if _AsyncSessionLocal is None:
+            async_bind()
+
+        session = _AsyncSessionLocal()
+        _async_stack_var.set(((session, True),))
+        return session
+
+    async def __aexit__(self, exc_type, *_):
+        stack = _async_stack_var.get()
+        if not stack:
+            return
+
+        session, is_owner = stack[-1]
+        _async_stack_var.set(stack[:-1])
+
+        if not is_owner:
+            return
+
+        try:
+            if exc_type is None:
+                await session.commit()
+            else:
+                await session.rollback()
+        finally:
+            await session.close()
+
+
 db_session = _DbSession()
+async_db_session = _AsyncDbSession()
 
 
 class Base(DeclarativeBase):
@@ -169,9 +338,9 @@ class _SelectQuery:
         self._filters = filters
         self._order = None
 
-    def _q(self, sess):
-        q = sess.query(self._entity).filter_by(**self._filters)
-        return q.order_by(*self._order) if self._order else q
+    def _stmt(self):
+        stmt = select(self._entity).filter_by(**self._filters)
+        return stmt.order_by(*self._order) if self._order else stmt
 
     def order_by(self, *cols):
         self._order = cols
@@ -179,15 +348,15 @@ class _SelectQuery:
 
     def first(self):
         with db_session as sess:
-            return self._q(sess).first()
+            return sess.scalars(self._stmt()).first()
 
     def all(self):
         with db_session as sess:
-            return self._q(sess).all()
+            return list(sess.scalars(self._stmt()).all())
 
     def delete(self):
         with db_session as sess:
-            return self._q(sess).delete(synchronize_session=False)
+            return sess.execute(delete(self._entity).filter_by(**self._filters)).rowcount
 
     def __iter__(self):
         return iter(self.all())
@@ -208,7 +377,7 @@ class EntityMixin:
     @classmethod
     def get(cls, **kwargs):
         with db_session as sess:
-            return sess.query(cls).filter_by(**kwargs).first()
+            return sess.scalars(select(cls).filter_by(**kwargs)).first()
 
     @classmethod
     def select(cls, **kwargs):
@@ -216,3 +385,15 @@ class EntityMixin:
 
     def to_dict(self):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
+
+class TimestampMixin:
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+def bulk_insert(entity_cls, mappings):
+    with db_session as sess:
+        sess.bulk_insert_mappings(entity_cls, list(mappings))
