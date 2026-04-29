@@ -2,30 +2,26 @@ import asyncio
 import unittest
 from unittest.mock import MagicMock, patch
 
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, select
 
 from serpens import database
 from serpens.database import (
     Base,
-    EntityMixin,
+    SessionLocal,
     TimestampMixin,
     async_db_session,
-    bulk_insert,
-    current_async_session,
-    current_session,
     db_session,
-    select,
 )
 
 
-class _Item(EntityMixin, Base):
+class _Item(Base):
     __tablename__ = "item"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
 
 
-class _Stamped(EntityMixin, TimestampMixin, Base):
+class _Stamped(TimestampMixin, Base):
     __tablename__ = "stamped"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -35,151 +31,91 @@ class _Stamped(EntityMixin, TimestampMixin, Base):
 class TestDatabase(unittest.TestCase):
     def setUp(self):
         database.dispose()
-
         self.engine = database.bind("sqlite:///:memory:")
         Base.metadata.create_all(self.engine)
 
     def tearDown(self):
         database.dispose()
 
-    def test_current_session_outside_scope_is_none(self):
-        self.assertIsNone(current_session())
+    def test_session_local_idiomatic(self):
+        # SA 2.0 idiom: caller owns commit/rollback, no global state.
+        with database.SessionLocal() as sess:
+            sess.add(_Item(name="explicit"))
+            sess.commit()
 
-    def test_db_session_context_manager_commits(self):
-        with db_session as sess:
-            self.assertIsNotNone(sess)
-            self.assertIs(current_session(), sess)
+        with database.SessionLocal() as sess:
+            row = sess.scalars(select(_Item).filter_by(name="explicit")).first()
+            self.assertIsNotNone(row)
 
-        self.assertIsNone(current_session())
+    def test_session_local_is_module_attribute(self):
+        # After bind(), SessionLocal is exposed; before, it's None.
+        self.assertIsNotNone(database.SessionLocal)
+        database.dispose()
+        self.assertIsNone(database.SessionLocal)
 
-    def test_db_session_nested_reuses_session(self):
-        with db_session as outer:
-            with db_session as inner:
-                self.assertIs(outer, inner)
+    def test_db_session_commits_on_success(self):
+        with db_session() as sess:
+            sess.add(_Item(name="auto"))
 
-        self.assertIsNone(current_session())
+        with db_session() as sess:
+            self.assertEqual(sess.query(_Item).count(), 1)
 
-    def test_db_session_decorator(self):
-        captured = {}
-
-        @db_session
-        def handler():
-            captured["session"] = current_session()
-
-        handler()
-
-        self.assertIsNotNone(captured["session"])
-        self.assertIsNone(current_session())
-
-    def test_db_session_rollback_on_exception(self):
+    def test_db_session_rolls_back_on_exception(self):
         with self.assertRaises(ValueError):
-            with db_session:
-                _Item(name="fail")
+            with db_session() as sess:
+                sess.add(_Item(name="fail"))
                 raise ValueError("boom")
 
-        with db_session as sess:
+        with db_session() as sess:
             self.assertEqual(sess.query(_Item).count(), 0)
 
-    def test_entity_mixin_requires_active_session(self):
-        with self.assertRaises(RuntimeError):
-            _Item(name="orphan")
+    def test_db_session_auto_binds_when_unconfigured(self):
+        database.dispose()
+        with patch.object(database, "envvars") as m_env:
+            m_env.get.return_value = "sqlite:///:memory:"
+            with db_session() as sess:
+                self.assertIsNotNone(sess)
 
-    def test_entity_mixin_persists_in_session(self):
-        with db_session:
-            item = _Item(name="foo")
-            self.assertIsNotNone(item.id)
+    def test_select_2_0_query(self):
+        with db_session() as sess:
+            sess.add(_Item(name="foo"))
+            sess.add(_Item(name="bar"))
 
-        with db_session as sess:
-            persisted = sess.query(_Item).filter_by(name="foo").first()
-            self.assertIsNotNone(persisted)
-
-    def test_entity_mixin_get(self):
-        with db_session:
-            _Item(name="foo")
-
-        result = _Item.get(name="foo")
-        self.assertIsNotNone(result)
-        self.assertEqual(result.name, "foo")
-
-    def test_entity_mixin_select_first(self):
-        with db_session:
-            _Item(name="a")
-            _Item(name="b")
-
-        result = _Item.select(name="a").first()
-        self.assertIsNotNone(result)
-        self.assertEqual(result.name, "a")
-
-    def test_entity_mixin_select_all(self):
-        with db_session:
-            _Item(name="a")
-            _Item(name="b")
-
-        result = _Item.select().all()
-        self.assertEqual(len(result), 2)
-
-    def test_entity_mixin_select_iter(self):
-        with db_session:
-            _Item(name="a")
-            _Item(name="b")
-
-        names = sorted(i.name for i in _Item.select())
-        self.assertEqual(names, ["a", "b"])
-
-    def test_entity_mixin_select_delete(self):
-        with db_session:
-            _Item(name="a")
-            _Item(name="b")
-
-        _Item.select().delete()
-
-        with db_session as sess:
-            self.assertEqual(sess.query(_Item).count(), 0)
-
-    def test_entity_mixin_to_dict(self):
-        with db_session:
-            item = _Item(name="foo")
-            result = item.to_dict()
-
-        self.assertEqual(result["name"], "foo")
-        self.assertIn("id", result)
-
-    def test_select_2_0_style_query(self):
-        with db_session:
-            _Item(name="foo")
-            _Item(name="bar")
-
-        with db_session as sess:
-            stmt = select(_Item).where(_Item.name == "foo")
-            row = sess.scalars(stmt).first()
+        with db_session() as sess:
+            row = sess.scalars(select(_Item).where(_Item.name == "foo")).first()
             self.assertIsNotNone(row)
             self.assertEqual(row.name, "foo")
 
     def test_timestamp_mixin_sets_timestamps(self):
-        with db_session:
+        with db_session() as sess:
             item = _Stamped(label="hello")
+            sess.add(item)
+            sess.flush()
             self.assertIsNotNone(item.created_at)
             self.assertIsNotNone(item.updated_at)
 
     def test_timestamp_mixin_on_update(self):
-        with db_session:
+        with db_session() as sess:
             item = _Stamped(label="hello")
+            sess.add(item)
+            sess.flush()
             original_updated = item.updated_at
 
-        with db_session as sess:
+        with db_session() as sess:
             row = sess.query(_Stamped).filter_by(label="hello").first()
             row.label = "changed"
             sess.flush()
             self.assertGreaterEqual(row.updated_at, original_updated)
 
-    def test_bulk_insert(self):
-        bulk_insert(
-            _Item,
-            [{"name": "x"}, {"name": "y"}, {"name": "z"}],
-        )
 
-        with db_session as sess:
-            self.assertEqual(sess.query(_Item).count(), 3)
+class TestDeclarativeBaseFactory(unittest.TestCase):
+    def test_no_schema(self):
+        b = database.declarative_base()
+        self.assertTrue(hasattr(b, "metadata"))
+
+    def test_with_schema(self):
+        b = database.declarative_base(schema="public")
+        self.assertEqual(b.metadata.schema, "public")
 
 
 class TestBindDispose(unittest.TestCase):
@@ -189,7 +125,7 @@ class TestBindDispose(unittest.TestCase):
     def tearDown(self):
         database.dispose()
 
-    def test_bind_is_idempotent_without_url(self):
+    def test_bind_idempotent_without_url(self):
         engine1 = database.bind("sqlite:///:memory:")
         engine2 = database.bind()
         self.assertIs(engine1, engine2)
@@ -213,11 +149,72 @@ class TestBindDispose(unittest.TestCase):
         database.dispose()
         self.assertIsNone(database._engine)
 
-    def test_dispose_clears_engine(self):
+    def test_dispose_clears_state(self):
         database.bind("sqlite:///:memory:")
         database.dispose()
         self.assertIsNone(database._engine)
-        self.assertIsNone(database._SessionLocal)
+        self.assertIsNone(database.SessionLocal)
+
+
+class TestOnConnect(unittest.TestCase):
+    """Postgres `_on_connect` listener applies timeouts safely."""
+
+    def test_validates_envvars_with_int(self):
+        with patch.dict("os.environ", {"DB_STATEMENT_TIMEOUT_MS": "1000;DROP TABLE x"}):
+            cur = MagicMock()
+            conn = MagicMock()
+            conn.cursor.return_value = cur
+            with self.assertRaises(ValueError):
+                database._on_connect(conn, None)
+            cur.execute.assert_not_called()
+
+    def test_executes_set_statements(self):
+        cur = MagicMock()
+        conn = MagicMock()
+        conn.cursor.return_value = cur
+        with patch.dict(
+            "os.environ",
+            {
+                "DB_STATEMENT_TIMEOUT_MS": "9000",
+                "DB_LOCK_TIMEOUT_MS": "1500",
+                "DB_IDLE_IN_TX_TIMEOUT_MS": "12000",
+            },
+        ):
+            database._on_connect(conn, None)
+        called_sql = cur.execute.call_args.args[0]
+        self.assertIn("statement_timeout = 9000", called_sql)
+        self.assertIn("lock_timeout = 1500", called_sql)
+        self.assertIn("idle_in_transaction_session_timeout = 12000", called_sql)
+        cur.close.assert_called_once()
+
+
+class TestAsyncEngineRegistersOnConnect(unittest.TestCase):
+    """Async engine must also receive the `_on_connect` timeout listener."""
+
+    def tearDown(self):
+        database._async_engine = None
+        database.AsyncSessionLocal = None
+
+    def test_postgres_registers_listener(self):
+        with (
+            patch("serpens.database.create_async_engine") as mcreate,
+            patch("serpens.database.event") as mevent,
+        ):
+            mcreate.return_value = MagicMock()
+            database.async_bind("postgresql://user:pw@host/db")
+            mevent.listen.assert_called_once()
+            args = mevent.listen.call_args.args
+            self.assertEqual(args[1], "connect")
+            self.assertIs(args[2], database._on_connect)
+
+    def test_sqlite_does_not_register_listener(self):
+        with (
+            patch("serpens.database.create_async_engine") as mcreate,
+            patch("serpens.database.event") as mevent,
+        ):
+            mcreate.return_value = MagicMock()
+            database.async_bind("sqlite:///:memory:")
+            mevent.listen.assert_not_called()
 
 
 class TestAsyncDatabase(unittest.TestCase):
@@ -231,43 +228,17 @@ class TestAsyncDatabase(unittest.TestCase):
         asyncio.run(database.async_dispose())
         database.dispose()
 
-    def test_current_async_session_outside_scope_is_none(self):
+    def test_async_db_session_commits(self):
         async def run():
-            return current_async_session()
-
-        self.assertIsNone(asyncio.run(run()))
-
-    def test_async_db_session_context_manager(self):
-        async def run():
-            async with async_db_session as sess:
+            async with async_db_session() as sess:
                 self.assertIsNotNone(sess)
-                self.assertIs(current_async_session(), sess)
-            self.assertIsNone(current_async_session())
 
         asyncio.run(run())
-
-    def test_async_db_session_nested_reuses(self):
-        async def run():
-            async with async_db_session as outer:
-                async with async_db_session as inner:
-                    self.assertIs(outer, inner)
-
-        asyncio.run(run())
-
-    def test_async_db_session_decorator(self):
-        captured = {}
-
-        @async_db_session
-        async def handler():
-            captured["session"] = current_async_session()
-
-        asyncio.run(handler())
-        self.assertIsNotNone(captured["session"])
 
     def test_async_db_session_rollback_on_exception(self):
         async def run():
             with self.assertRaises(ValueError):
-                async with async_db_session:
+                async with async_db_session():
                     raise ValueError("boom")
 
         asyncio.run(run())
