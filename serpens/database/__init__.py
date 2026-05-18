@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from serpens import envvars
+from serpens.database.repository import AsyncRepository, NotFound, Repository
 
 __all__ = [
     "Base",
@@ -34,6 +35,9 @@ __all__ = [
     "AsyncSessionLocal",
     "async_db_session",
     "fastapi_async_session",
+    "Repository",
+    "AsyncRepository",
+    "NotFound",
 ]
 
 _engine: Optional[Engine] = None

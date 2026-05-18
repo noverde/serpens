@@ -199,6 +199,78 @@ app = FastAPI(lifespan=lifespan)
 Calling `bind()` at the top of `models.py` makes import order matter and
 breaks under cold-start.
 
+### Repository (optional)
+
+`Repository[T]` (sync) and `AsyncRepository[T]` (async) cover the CRUD that
+every service rewrites: PK lookups, filtered queries, paginate, add, upsert.
+Subclass with `model = X` and add your own methods for anything custom — the
+`query` property exposes a `Select(model)` you compose on. The base
+intentionally **does not** ship hard-delete or partial update: services do
+soft-delete differently and updates often need optimistic locking.
+
+```python
+from serpens.database import AsyncRepository
+
+class ProductRepo(AsyncRepository[Product]):
+    model = Product
+
+    async def by_slug(self, slug):                 # custom lookup
+        return await self.get_by(slug=slug)
+
+async with async_db_session() as sess:
+    p = await ProductRepo(sess).by_slug("noverde_empirica")
+```
+
+Built-in methods: `get`, `get_or_raise` (raises `serpens.database.NotFound`),
+`get_by`, `exists`, `count`, `list(order_by=, limit=, offset=, **filters)`,
+`paginate(stmt=, page=, size=)`, `add(obj, flush=True)`, `bulk_add(objs)`,
+`upsert(values, conflict_on=, update_fields=)`.
+
+#### Recipe: soft-delete
+
+Don't expose hard delete. Add a method on your repo:
+
+```python
+class PaymentRepo(AsyncRepository[Payment]):
+    model = Payment
+
+    async def cancel(self, payment, *, reason: str):
+        payment.status = "cancelled"
+        payment.cancel_reason = reason
+        await self.sess.flush()
+```
+
+#### Recipe: optimistic locking
+
+Declare `version_id_col` on the model — `Repository` doesn't fight it:
+
+```python
+class Payment(TimestampMixin, Base):
+    __tablename__ = "payments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    __mapper_args__ = {"version_id_col": version}
+```
+
+SA will raise `StaleDataError` on concurrent update. Catch it in the handler.
+
+#### Recipe: idempotent insert (`upsert`, not `get_or_create`)
+
+`get_or_create` has a race between SELECT and INSERT. Use `upsert` instead —
+Postgres `INSERT ... ON CONFLICT ... RETURNING`:
+
+```python
+class IdempotentPaymentRepo(AsyncRepository[Payment]):
+    model = Payment
+
+await IdempotentPaymentRepo(sess).upsert(
+    {"external_id": req.idempotency_key, "amount": req.amount, "status": "received"},
+    conflict_on=["external_id"],
+    update_fields=["amount"],   # omit to do nothing on conflict
+)
+```
+
 ## Migrations
 
 **New repos use Alembic.** `serpens.migrations` (yoyo) is kept only for legacy
