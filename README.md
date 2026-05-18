@@ -170,7 +170,11 @@ Base = declarative_base(schema="public")
 | `DB_STATEMENT_TIMEOUT_MS` | `5000` | Postgres `statement_timeout`. |
 | `DB_LOCK_TIMEOUT_MS` | `2000` | Postgres `lock_timeout`. |
 | `DB_IDLE_IN_TX_TIMEOUT_MS` | `10000` | Postgres `idle_in_transaction_session_timeout`. |
+| `DB_POOL_USE_LIFO` | `true` | LIFO checkout (warm connections preferred). Set `false` for FIFO. |
 | `DB_ECHO` | `false` | Log every SQL statement. |
+
+`bind()` and `async_bind()` also accept `pool_use_lifo=True/False` as a direct
+override of the env var.
 
 Cloud SQL keepalives (`keepalives=1`, `keepalives_idle=30`,
 `keepalives_interval=10`, `keepalives_count=3`) are applied automatically on
@@ -416,16 +420,28 @@ async def get_product(slug: str):
 | `CACHE_PREFIX` | `serpens` | Prefix prepended to every key. Set per-service. |
 | `CACHE_TTL` | `300` | Default TTL for `set_` / `cached`. |
 
+### In tests
+
+`testgres.setup(Base, redis_mode=True)` spins a Redis container alongside
+Postgres and exports `REDIS_URL` to the test environment — `cache_async.init()`
+picks it up without further config. If `REDIS_URL` is already set, the existing
+instance is reused.
+
 ## Async Pub/Sub publisher
 
 `serpens.pubsub.AsyncPublisher` wraps the sync Google SDK with
 `asyncio.wrap_future` so `await publish(...)` does not block the event loop.
 Instantiate once per process in `lifespan`, close on shutdown.
 
+`topic` is the full topic id (`projects/PROJECT/topics/NAME`) — the same value
+Terraform exposes as an env var, no need to rebuild it via
+`client.topic_path(...)`. When `elasticapm` is installed, every publish emits a
+messaging span labeled with the topic.
+
 ```python
 from serpens.pubsub import AsyncPublisher
 
-publisher = AsyncPublisher(project_id=settings.GCP_PROJECT_ID)
+publisher = AsyncPublisher()
 
 @asynccontextmanager
 async def lifespan(_app):
@@ -433,5 +449,5 @@ async def lifespan(_app):
     publisher.close()
 
 async def emit(payload: dict):
-    await publisher.publish("my-topic", payload)
+    await publisher.publish(settings.MY_TOPIC, payload)
 ```

@@ -64,17 +64,19 @@ def _on_connect(dbapi_conn, _):
         cur.close()
 
 
-def _engine_args(url):
+def _engine_args(url, pool_use_lifo=None):
     kwargs = {"echo": os.getenv("DB_ECHO", "").lower() in ("1", "true", "yes")}
     if not (url and url.startswith("postgresql")):
         return kwargs, {}
+    if pool_use_lifo is None:
+        pool_use_lifo = os.getenv("DB_POOL_USE_LIFO", "true").lower() in ("1", "true", "yes")
     kwargs.update(
         pool_size=int(os.getenv("DB_POOL_SIZE", "10")),
         max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "20")),
         pool_timeout=int(os.getenv("DB_POOL_TIMEOUT", "10")),
         pool_recycle=int(os.getenv("DB_POOL_RECYCLE", "1800")),
         pool_pre_ping=True,
-        pool_use_lifo=True,
+        pool_use_lifo=pool_use_lifo,
     )
     return kwargs, {
         "application_name": os.getenv("K_SERVICE")
@@ -103,7 +105,7 @@ def _normalize_async_url(url):
     return url
 
 
-def bind(url: Optional[str] = None) -> Engine:
+def bind(url: Optional[str] = None, pool_use_lifo: Optional[bool] = None) -> Engine:
     global _engine, SessionLocal
     if _engine is not None and url is None:
         return _engine
@@ -112,7 +114,7 @@ def bind(url: Optional[str] = None) -> Engine:
         _engine = SessionLocal = None
 
     url = _normalize_sync_url(url or envvars.get("DATABASE_URL"))
-    kwargs, connect_args = _engine_args(url)
+    kwargs, connect_args = _engine_args(url, pool_use_lifo=pool_use_lifo)
     _engine = create_engine(url, connect_args=connect_args, **kwargs)
     if url and url.startswith("postgresql"):
         event.listen(_engine, "connect", _on_connect)
@@ -128,7 +130,7 @@ def dispose() -> None:
     _engine = SessionLocal = None
 
 
-def async_bind(url: Optional[str] = None) -> AsyncEngine:
+def async_bind(url: Optional[str] = None, pool_use_lifo: Optional[bool] = None) -> AsyncEngine:
     global _async_engine, AsyncSessionLocal
     if _async_engine is not None and url is None:
         return _async_engine
@@ -137,7 +139,7 @@ def async_bind(url: Optional[str] = None) -> AsyncEngine:
         _async_engine = AsyncSessionLocal = None
 
     resolved = _normalize_async_url(url or envvars.get("DATABASE_URL"))
-    kwargs, _ = _engine_args(resolved)
+    kwargs, _ = _engine_args(resolved, pool_use_lifo=pool_use_lifo)
     _async_engine = create_async_engine(resolved, **kwargs)
     if resolved and resolved.startswith("postgresql"):
         event.listen(_async_engine.sync_engine, "connect", _on_connect)

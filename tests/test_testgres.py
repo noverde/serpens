@@ -182,3 +182,28 @@ class TestTestgres(unittest.TestCase):
                 del os.environ["DATABASE_URL"]
             else:
                 os.environ["DATABASE_URL"] = db_url
+
+    def test_setup_with_redis_mode_flags_it(self):
+        from serpens import testgres as tg
+
+        prev_db, prev_redis = os.environ.pop("DATABASE_URL", None), os.environ.pop(
+            "REDIS_URL", None
+        )
+        try:
+            setup(Mock(), redis_mode=True)
+            self.assertTrue(tg.redis_enabled)
+            self.assertIsNone(tg.external_redis_url)
+        finally:
+            tg.redis_enabled = False
+            if prev_db is not None:
+                os.environ["DATABASE_URL"] = prev_db
+            if prev_redis is not None:
+                os.environ["REDIS_URL"] = prev_redis
+
+    @patch("serpens.testgres._wait_for_tcp", return_value=True)
+    def test_docker_redis_init_returns_url(self, _mtcp):
+        from serpens.testgres import docker_redis_init
+
+        self.mrun.return_value.stdout = "6379/tcp -> 0.0.0.0:65432"
+        url = docker_redis_init()
+        self.assertEqual(url, "redis://localhost:65432")

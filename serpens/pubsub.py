@@ -1,10 +1,26 @@
 import asyncio
 import json
+from contextlib import contextmanager
 from typing import Any, Dict, List, Optional
 
 from google.cloud import pubsub_v1
 
 from serpens.schema import SchemaEncoder
+
+try:
+    from elasticapm import capture_span
+except ImportError:  # pragma: no cover
+    capture_span = None
+
+
+@contextmanager
+def _messaging_span(topic: str):
+    if capture_span is None:
+        yield None
+        return
+    with capture_span(topic, span_type="messaging") as span:
+        yield span
+
 
 MAX_BATCH_SIZE = 10
 
@@ -74,10 +90,14 @@ def publish_message_batch(topic: str, messages: List[Dict], ordering_key: str = 
 
 
 class AsyncPublisher:
-    """Async wrapper over `pubsub_v1.PublisherClient` for FastAPI / asyncio apps."""
+    """Async wrapper over `pubsub_v1.PublisherClient` for FastAPI / asyncio apps.
 
-    def __init__(self, project_id: str, ordering_key: str = ""):
-        self._project_id = project_id
+    `topic` is a full topic id (`projects/PROJECT/topics/NAME`) — the same
+    value our Terraform exposes as an env var. Emits an `elasticapm`
+    messaging span per publish when APM is available.
+    """
+
+    def __init__(self, ordering_key: str = ""):
         publisher_options = pubsub_v1.types.PublisherOptions(
             enable_message_ordering=bool(ordering_key)
         )
@@ -102,11 +122,14 @@ class AsyncPublisher:
             topic, endpoint = topic.split(":")
             attributes["endpoint"] = endpoint
 
-        topic_path = self._client.topic_path(self._project_id, topic)
         key = self._ordering_key if ordering_key is None else ordering_key
 
-        future = self._client.publish(topic_path, data=message, ordering_key=key, **attributes)
-        return await asyncio.wrap_future(future)
+        with _messaging_span(topic) as span:
+            future = self._client.publish(topic, data=message, ordering_key=key, **attributes)
+            message_id = await asyncio.wrap_future(future)
+            if span is not None and hasattr(span, "label"):
+                span.label(queue_name=topic)
+            return message_id
 
     def close(self) -> None:
         self._client.transport.close()

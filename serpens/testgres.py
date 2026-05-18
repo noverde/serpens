@@ -16,10 +16,14 @@ default_stop_test_run = unittest.result.TestResult.stopTestRun
 base = None
 schema = None
 async_enabled = False
+redis_enabled = False
 external_uri = None
+external_redis_url = None
 testgres_startup_delay = int(os.getenv("TESTGRES_STARTUP_DELAY", 1))
 testgres_startup_timeout = int(os.getenv("TESTGRES_STARTUP_TIMEOUT", 30))
 container_name = f"testgres_{uuid.uuid4().hex}"
+redis_container_name = f"testredis_{uuid.uuid4().hex}"
+redis_image = os.getenv("TESTGRES_REDIS_IMAGE", "redis:7-alpine")
 
 
 def docker_shell(cmd, output=True):
@@ -124,12 +128,41 @@ def _bind_async_engine():
     )
 
 
+def docker_redis_start():
+    cmdargs = f"-d --rm --name {redis_container_name} -p 6379"
+    return docker_shell(f"docker run {cmdargs} {redis_image}")
+
+
+def docker_redis_stop():
+    return docker_shell(f"docker stop {redis_container_name}", output=False)
+
+
+def docker_redis_port():
+    stdout = docker_shell(f"docker port {redis_container_name}").stdout
+    return stdout.split("\n")[0].split(":")[1]
+
+
+def docker_redis_init():
+    print("Docker redis initialization...")
+
+    docker_redis_stop()
+    docker_redis_start()
+
+    deadline = time.monotonic() + testgres_startup_timeout
+    port = docker_redis_port()
+    if not _wait_for_tcp(port, deadline):
+        raise RuntimeError(f"redis TCP {port} did not open within {testgres_startup_timeout}s")
+    return f"redis://localhost:{port}"
+
+
 def start_test_run(self):
     uri = external_uri or docker_init()
     engine = database.bind(uri)
     base.metadata.create_all(engine)
     if async_enabled:
         _bind_async_engine()
+    if redis_enabled and not external_redis_url:
+        os.environ["REDIS_URL"] = docker_redis_init()
     default_start_test_run(self)
 
 
@@ -139,14 +172,31 @@ def stop_test_run(self):
     finally:
         if not external_uri:
             docker_stop()
+        if redis_enabled and not external_redis_url:
+            docker_redis_stop()
         default_stop_test_run(self)
 
 
-def setup(declarative_base, uri=None, default_schema=None, async_mode=False):
-    global base, schema, async_enabled, external_uri
+def setup(
+    declarative_base,
+    uri=None,
+    default_schema=None,
+    async_mode=False,
+    redis_mode=False,
+):
+    """Wire up testgres for an app's test suite.
+
+    `redis_mode=True` spins a Redis container alongside Postgres and sets the
+    `REDIS_URL` env var, removing the per-app boilerplate (`pix-automatic`,
+    `integrator-vcom`). If `REDIS_URL` is already set, the existing instance
+    is reused.
+    """
+    global base, schema, async_enabled, redis_enabled, external_uri, external_redis_url
     async_enabled = async_mode
+    redis_enabled = redis_mode
     base = declarative_base
     schema = default_schema
     external_uri = uri or os.environ.get("DATABASE_URL")
+    external_redis_url = os.environ.get("REDIS_URL") if redis_mode else None
     unittest.result.TestResult.startTestRun = start_test_run
     unittest.result.TestResult.stopTestRun = stop_test_run
