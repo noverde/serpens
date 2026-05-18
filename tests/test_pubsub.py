@@ -1,9 +1,10 @@
+import concurrent.futures
 import json
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from google.api_core import exceptions
-from pubsub import publish_message, publish_message_batch
+from pubsub import AsyncPublisher, publish_message, publish_message_batch
 from serpens.schema import SchemaEncoder
 
 
@@ -164,3 +165,54 @@ class pubsub(unittest.TestCase):
                 "projects/dotz-noverde-dev/topics/sre-playground",
                 message,
             )
+
+
+def _resolved_future(value):
+    fut = concurrent.futures.Future()
+    fut.set_result(value)
+    return fut
+
+
+class AsyncPublisherTests(unittest.IsolatedAsyncioTestCase):
+    @patch("pubsub.pubsub_v1")
+    async def test_publish_serializes_dict_and_returns_message_id(self, m_pubsub_v1):
+        m_pubsub_v1.PublisherClient.return_value = MagicMock(
+            topic_path=MagicMock(return_value="projects/p/topics/t"),
+            publish=MagicMock(return_value=_resolved_future("id-1")),
+        )
+
+        publisher = AsyncPublisher(project_id="p")
+        result = await publisher.publish("t", {"foo": "bar"})
+
+        self.assertEqual(result, "id-1")
+        publisher._client.publish.assert_called_once()
+        _, kwargs = publisher._client.publish.call_args
+        self.assertEqual(json.loads(kwargs["data"]), {"foo": "bar"})
+        self.assertEqual(kwargs["ordering_key"], "")
+
+    @patch("pubsub.pubsub_v1")
+    async def test_publish_extracts_endpoint_from_topic(self, m_pubsub_v1):
+        m_pubsub_v1.PublisherClient.return_value = MagicMock(
+            topic_path=MagicMock(return_value="projects/p/topics/t"),
+            publish=MagicMock(return_value=_resolved_future("id-2")),
+        )
+
+        publisher = AsyncPublisher(project_id="p")
+        await publisher.publish("t:endpoint-x", "payload")
+
+        publisher._client.topic_path.assert_called_once_with("p", "t")
+        _, kwargs = publisher._client.publish.call_args
+        self.assertEqual(kwargs["endpoint"], "endpoint-x")
+
+    @patch("pubsub.pubsub_v1")
+    async def test_publish_propagates_per_call_ordering_key(self, m_pubsub_v1):
+        m_pubsub_v1.PublisherClient.return_value = MagicMock(
+            topic_path=MagicMock(return_value="projects/p/topics/t"),
+            publish=MagicMock(return_value=_resolved_future("id-3")),
+        )
+
+        publisher = AsyncPublisher(project_id="p", ordering_key="default-key")
+        await publisher.publish("t", "payload", ordering_key="override-key")
+
+        _, kwargs = publisher._client.publish.call_args
+        self.assertEqual(kwargs["ordering_key"], "override-key")

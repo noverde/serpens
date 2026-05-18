@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any, Dict, List, Optional
 
@@ -33,7 +34,6 @@ def publish_message(
         ordering_key = ""
 
     future = publisher.publish(topic, data=message, ordering_key=ordering_key, **attributes)
-
     return future.result()
 
 
@@ -68,7 +68,45 @@ def publish_message_batch(topic: str, messages: List[Dict], ordering_key: str = 
         future = publisher.publish(
             topic, data=body, ordering_key=ordering_key, **message["attributes"]
         )
-
         futures.append(future)
 
     return [f.result() for f in futures]
+
+
+class AsyncPublisher:
+    """Async wrapper over `pubsub_v1.PublisherClient` for FastAPI / asyncio apps."""
+
+    def __init__(self, project_id: str, ordering_key: str = ""):
+        self._project_id = project_id
+        publisher_options = pubsub_v1.types.PublisherOptions(
+            enable_message_ordering=bool(ordering_key)
+        )
+        self._client = pubsub_v1.PublisherClient(publisher_options=publisher_options)
+        self._ordering_key = ordering_key
+
+    async def publish(
+        self,
+        topic: str,
+        data: Any,
+        ordering_key: Optional[str] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        if not isinstance(data, str):
+            data = json.dumps(data, cls=SchemaEncoder)
+        message = data.encode("utf-8")
+
+        if attributes is None:
+            attributes = {}
+
+        if ":" in topic:
+            topic, endpoint = topic.split(":")
+            attributes["endpoint"] = endpoint
+
+        topic_path = self._client.topic_path(self._project_id, topic)
+        key = self._ordering_key if ordering_key is None else ordering_key
+
+        future = self._client.publish(topic_path, data=message, ordering_key=key, **attributes)
+        return await asyncio.wrap_future(future)
+
+    def close(self) -> None:
+        self._client.transport.close()

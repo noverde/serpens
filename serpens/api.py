@@ -11,48 +11,53 @@ initializers.setup()
 logger = logging.getLogger(__name__)
 
 
+def _build_response(result):
+    if isinstance(result, Response):
+        elastic.capture_response(result.body)
+        return result.to_dict()
+
+    response = Response()
+    if isinstance(result, tuple) and isinstance(result[0], int):
+        response.statusCode = result[0]
+        result = result[1]
+    if is_dataclass(result):
+        result = asdict(result)
+
+    elastic.capture_response(result)
+
+    if isinstance(result, (dict, list)):
+        result = json.dumps(result, cls=SchemaEncoder)
+
+    response.body = result
+    return response.to_dict()
+
+
+def _error_response(ex):
+    logger.exception(ex)
+    elastic.capture_exception(ex, is_http_request=True)
+    return {"statusCode": 500, "body": json.dumps({"message": str(ex)})}
+
+
 def handler(func):
     @wraps(func)
     def wrapper(event, context):
         logger.debug(f"Received data: {event}")
-
         try:
-            request = Request(event)
-            result = func(request)
-
-            if isinstance(result, Response):
-                elastic.capture_response(result.body)
-
-                return result.to_dict()
-
-            response = Response()
-
-            if isinstance(result, tuple) and isinstance(result[0], int):
-                response.statusCode = result[0]
-                result = result[1]
-
-            if is_dataclass(result):
-                result = asdict(result)
-
-            elastic.capture_response(result)
-
-            if isinstance(result, (dict, list)):
-                result = json.dumps(result, cls=SchemaEncoder)
-
-            response.body = result
-
-            return response.to_dict()
+            return _build_response(func(Request(event)))
         except Exception as ex:
-            logger.exception(ex)
-            elastic.capture_exception(ex, is_http_request=True)
-            return {
-                "statusCode": 500,
-                "body": json.dumps(
-                    {
-                        "message": str(ex),
-                    }
-                ),
-            }
+            return _error_response(ex)
+
+    return wrapper
+
+
+def async_handler(func):
+    @wraps(func)
+    async def wrapper(event, context):
+        logger.debug(f"Received data: {event}")
+        try:
+            return _build_response(await func(Request(event)))
+        except Exception as ex:
+            return _error_response(ex)
 
     return wrapper
 
