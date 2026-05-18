@@ -7,7 +7,6 @@ from sqlalchemy import Column, Integer, String, select
 from serpens import database
 from serpens.database import (
     Base,
-    SessionLocal,
     TimestampMixin,
     async_db_session,
     db_session,

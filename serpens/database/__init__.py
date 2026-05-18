@@ -1,39 +1,6 @@
-"""SQLAlchemy 2.0 helpers — opinionated engine setup, session factory, model base.
+"""Thin SQLAlchemy 2.0 layer: engine, session factory, declarative base.
 
-Thin layer over SA 2.0. Apps use SA directly for queries (`select`, `insert`, etc.):
-
-    from sqlalchemy import select
-    from serpens.database import SessionLocal, Base, TimestampMixin
-
-    class User(TimestampMixin, Base):
-        ...
-
-    with SessionLocal() as sess:
-        sess.scalars(select(User)).all()
-        sess.commit()
-
-For Lambda / scripts where you want commit-on-exit / rollback-on-exception managed
-for you, use `db_session()` instead of `SessionLocal()`:
-
-    with db_session() as sess:
-        sess.add(User(name="Ana"))
-    # commits on exit; rolls back on exception
-
-What this module owns and why:
-
-- Engine config that is pegadinha in production (Cloud SQL keepalives, Postgres
-  `statement_timeout` / `lock_timeout` / `idle_in_transaction_session_timeout`,
-  `pool_use_lifo`, `pool_pre_ping`, scheme normalization). Centralized so a fix
-  is one PR, not 24.
-- Lambda-aware defaults (set `DB_POOL_SIZE=1` / `DB_MAX_OVERFLOW=0` in your
-  Lambda env to avoid pool churn).
-- Symmetric async API.
-- Alembic helper (`serpens.database.alembic.run_migrations`) for migrations.
-
-What this module does NOT own:
-
-- Query construction (use `sqlalchemy` directly).
-- Session-as-global / `current_session()` / `EntityMixin` (Pony pattern).
+Sync and async APIs mirror each other. Queries use `sqlalchemy` directly.
 """
 
 import asyncio
@@ -49,13 +16,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import (
-    DeclarativeBase,
-    Mapped,
-    Session,
-    mapped_column,
-    sessionmaker,
-)
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from serpens import envvars
 
@@ -67,10 +28,12 @@ __all__ = [
     "dispose",
     "SessionLocal",
     "db_session",
+    "fastapi_session",
     "async_bind",
     "async_dispose",
     "AsyncSessionLocal",
     "async_db_session",
+    "fastapi_async_session",
 ]
 
 _engine: Optional[Engine] = None
@@ -87,8 +50,6 @@ _ASYNC_SCHEMES = {
 
 
 def _on_connect(dbapi_conn, _):
-    # `int(...)` validates each value before interpolation — guards against
-    # poisoned envvars (compromised secret store) injecting arbitrary SQL.
     stmt_ms = int(os.getenv("DB_STATEMENT_TIMEOUT_MS", "5000"))
     lock_ms = int(os.getenv("DB_LOCK_TIMEOUT_MS", "2000"))
     idle_ms = int(os.getenv("DB_IDLE_IN_TX_TIMEOUT_MS", "10000"))
@@ -143,7 +104,6 @@ def _normalize_async_url(url):
 
 
 def bind(url: Optional[str] = None) -> Engine:
-    """Initialize the sync `Engine` and `SessionLocal`. Idempotent without `url`."""
     global _engine, SessionLocal
     if _engine is not None and url is None:
         return _engine
@@ -180,7 +140,6 @@ def async_bind(url: Optional[str] = None) -> AsyncEngine:
     kwargs, _ = _engine_args(resolved)
     _async_engine = create_async_engine(resolved, **kwargs)
     if resolved and resolved.startswith("postgresql"):
-        # Async engines route DBAPI events through the underlying sync engine.
         event.listen(_async_engine.sync_engine, "connect", _on_connect)
     AsyncSessionLocal = async_sessionmaker(
         bind=_async_engine, expire_on_commit=False, autoflush=False, class_=AsyncSession
@@ -198,12 +157,6 @@ async def async_dispose() -> None:
 
 @contextmanager
 def db_session() -> Iterator[Session]:
-    """Open a `Session`, commit on success, rollback on exception, close always.
-
-    Auto-binds with `bind()` if no engine is configured. Convenient for Lambda
-    handlers and short scripts; FastAPI handlers should prefer
-    `Depends(SessionLocal)` so the framework owns the lifecycle.
-    """
     if SessionLocal is None:
         bind()
     sess = SessionLocal()
@@ -219,7 +172,6 @@ def db_session() -> Iterator[Session]:
 
 @asynccontextmanager
 async def async_db_session() -> AsyncIterator[AsyncSession]:
-    """Async counterpart of :func:`db_session`."""
     if AsyncSessionLocal is None:
         async_bind()
     sess = AsyncSessionLocal()
@@ -233,22 +185,27 @@ async def async_db_session() -> AsyncIterator[AsyncSession]:
         await sess.close()
 
 
-class Base(DeclarativeBase):
-    """Default `DeclarativeBase`. Use `declarative_base(schema=...)` if you want a schema."""
+def fastapi_session() -> Iterator[Session]:
+    with db_session() as sess:
+        yield sess
 
+
+async def fastapi_async_session() -> AsyncIterator[AsyncSession]:
+    async with async_db_session() as sess:
+        yield sess
+
+
+class Base(DeclarativeBase):
     pass
 
 
 def declarative_base(schema: Optional[str] = None):
-    """Return a fresh declarative base, optionally bound to a Postgres schema."""
     if schema is None:
         return type("_Base", (DeclarativeBase,), {})
     return type("_Base", (DeclarativeBase,), {"metadata": MetaData(schema=schema)})
 
 
 class TimestampMixin:
-    """Adds `created_at` / `updated_at`; refreshes `updated_at` on every UPDATE."""
-
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow

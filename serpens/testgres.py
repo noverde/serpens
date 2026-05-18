@@ -5,14 +5,18 @@ import time
 import unittest
 import uuid
 
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
+
 from serpens import database
 
-# start and stop run functions so we can call it later
 default_start_test_run = unittest.result.TestResult.startTestRun
 default_stop_test_run = unittest.result.TestResult.stopTestRun
 
 base = None
 schema = None
+async_enabled = False
+external_uri = None
 testgres_startup_delay = int(os.getenv("TESTGRES_STARTUP_DELAY", 1))
 testgres_startup_timeout = int(os.getenv("TESTGRES_STARTUP_TIMEOUT", 30))
 container_name = f"testgres_{uuid.uuid4().hex}"
@@ -58,6 +62,33 @@ def docker_port():
     return result.split(":")[1]
 
 
+def _wait_for_tcp(port, deadline):
+    import socket
+
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection(("localhost", int(port)), timeout=1):
+                return True
+        except OSError:
+            time.sleep(testgres_startup_delay)
+    return False
+
+
+def _wait_for_postgres_accept(uri, deadline):
+    import psycopg2
+
+    last_err = None
+    while time.monotonic() < deadline:
+        try:
+            conn = psycopg2.connect(uri.replace("postgresql+psycopg2", "postgresql"))
+            conn.close()
+            return True
+        except psycopg2.OperationalError as e:
+            last_err = e
+            time.sleep(testgres_startup_delay)
+    raise RuntimeError(f"postgres did not accept connections: {last_err}")
+
+
 def docker_init():
     print("Docker engine initialization...")
 
@@ -73,38 +104,49 @@ def docker_init():
     docker_pg_user_path()
     port = docker_port()
 
-    return f"postgresql+psycopg2://testgres:testgres@localhost:{port}/testgres"
+    if not _wait_for_tcp(port, deadline):
+        raise RuntimeError(f"postgres TCP {port} did not open within {testgres_startup_timeout}s")
+
+    uri = f"postgresql+psycopg2://testgres:testgres@localhost:{port}/testgres"
+    _wait_for_postgres_accept(uri, deadline)
+    return uri
+
+
+def _bind_async_engine():
+    sync_url = database._engine.url.render_as_string(hide_password=False)
+    async_url = sync_url.replace("postgresql+psycopg2://", "postgresql+asyncpg://")
+    database._async_engine = create_async_engine(async_url, poolclass=NullPool)
+    database.AsyncSessionLocal = async_sessionmaker(
+        bind=database._async_engine,
+        expire_on_commit=False,
+        autoflush=False,
+        class_=AsyncSession,
+    )
 
 
 def start_test_run(self):
-    try:
-        uri = docker_init()
-        engine = database.bind(uri)
-        base.metadata.create_all(engine)
-        default_start_test_run(self)
-    except Exception as e:
-        print(str(e))
+    uri = external_uri or docker_init()
+    engine = database.bind(uri)
+    base.metadata.create_all(engine)
+    if async_enabled:
+        _bind_async_engine()
+    default_start_test_run(self)
 
 
 def stop_test_run(self):
     try:
         database.dispose()
     finally:
-        docker_stop()
+        if not external_uri:
+            docker_stop()
         default_stop_test_run(self)
 
 
-def setup(declarative_base, uri=None, default_schema=None):
-    if uri is None:
-        uri = os.environ.get("DATABASE_URL")
-
-    if uri:
-        engine = database.bind(uri)
-        declarative_base.metadata.create_all(engine)
-        return
-
-    global base, schema
+def setup(declarative_base, uri=None, default_schema=None, async_mode=False):
+    global base, schema, async_enabled, external_uri
+    async_enabled = async_mode
     base = declarative_base
     schema = default_schema
+    external_uri = uri or os.environ.get("DATABASE_URL")
     unittest.result.TestResult.startTestRun = start_test_run
     unittest.result.TestResult.stopTestRun = stop_test_run

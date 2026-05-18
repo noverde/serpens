@@ -112,8 +112,10 @@ class TestTestgres(unittest.TestCase):
         result = docker_pg_user_path()
         self.assertIsNone(result)
 
+    @patch("serpens.testgres._wait_for_postgres_accept", return_value=True)
+    @patch("serpens.testgres._wait_for_tcp", return_value=True)
     @patch("serpens.testgres.docker_pg_isready")
-    def test_docker_init(self, mpgs):
+    def test_docker_init(self, mpgs, _mtcp, _mpg):
         self.mrun.return_value.stdout = "foobar:65432"
         mpgs.side_effect = [1, 0]
         result = docker_init()
@@ -134,12 +136,10 @@ class TestTestgres(unittest.TestCase):
 
     @patch("serpens.testgres.docker_init", Mock())
     @patch("serpens.testgres.database")
-    def test_start_test_run_exception(self, mdb):
-        mdb.bind.side_effect = Exception()
-
-        start_test_run(None)
-
-        self.assertEqual(self.mprint.call_count, 1)
+    def test_start_test_run_propagates_exception(self, mdb):
+        mdb.bind.side_effect = RuntimeError("boom")
+        with self.assertRaises(RuntimeError):
+            start_test_run(None)
 
     @patch("serpens.testgres.default_stop_test_run")
     @patch("serpens.testgres.database")
@@ -164,20 +164,21 @@ class TestTestgres(unittest.TestCase):
         if db_url:
             os.environ["DATABASE_URL"] = db_url
 
-    @patch("serpens.testgres.database")
-    def test_setup_with_database_url(self, mdb):
+    @patch("serpens.testgres.unittest")
+    def test_setup_with_database_url_defers_to_start_run(self, munit):
         db_url = os.environ.get("DATABASE_URL")
+        os.environ["DATABASE_URL"] = "postgresql+psycopg2://t:t@localhost:55432/t"
 
-        if not db_url:
-            os.environ["DATABASE_URL"] = (
-                "postgresql+psycopg2://testgres:testgres@localhost:55432/testgres"
-            )
+        try:
+            from serpens import testgres as tg
 
-        mbase = Mock()
-        setup(mbase)
+            setup(Mock())
 
-        mdb.bind.assert_called_once()
-        mbase.metadata.create_all.assert_called_once()
-
-        if db_url:
-            os.environ["DATABASE_URL"] = db_url
+            self.assertEqual(tg.external_uri, "postgresql+psycopg2://t:t@localhost:55432/t")
+            self.assertEqual(munit.result.TestResult.startTestRun, start_test_run)
+            self.assertEqual(munit.result.TestResult.stopTestRun, stop_test_run)
+        finally:
+            if db_url is None:
+                del os.environ["DATABASE_URL"]
+            else:
+                os.environ["DATABASE_URL"] = db_url
