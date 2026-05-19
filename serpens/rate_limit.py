@@ -21,13 +21,6 @@ class RateLimiter:
         self.auth_lock = asyncio.Lock()
         self._task: Optional[asyncio.Task] = None
 
-    async def _replenish(self) -> None:
-        sleep_time = self.per_seconds / self.rate
-        while True:
-            await asyncio.sleep(sleep_time)
-            if self.semaphore._value < self.rate:
-                self.semaphore.release()
-
     def start(self) -> None:
         if self._task is None:
             self._task = asyncio.create_task(self._replenish())
@@ -45,3 +38,10 @@ class RateLimiter:
 
     async def acquire(self) -> None:
         await self.semaphore.acquire()
+
+    async def _replenish(self) -> None:
+        sleep_time = self.per_seconds / self.rate
+        while True:
+            await asyncio.sleep(sleep_time)
+            if self.semaphore._value < self.rate:
+                self.semaphore.release()

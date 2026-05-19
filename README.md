@@ -8,7 +8,7 @@ for the configuration that should not be duplicated across 24 repos.
 - [SQS](#sqs) · [Lambda API](#lambda-api) · [Schema](#schema) · [CSV](#csv)
 - [Database](#database) · [Migrations](#migrations) · [Pony → SQLAlchemy](#migrating-from-pony-orm)
 - [DynamoDB](#dynamodb) · [Async HTTP](#async-http-client) · [Rate limiter](#rate-limiter)
-- [Cache](#cache) · [Async Pub/Sub](#async-pub-sub-publisher)
+- [Cache](#cache) · [Async Pub/Sub](#async-pub-sub-publisher) · [Test infra](#test-infrastructure-testgres)
 
 ## SQS
 
@@ -34,6 +34,41 @@ def lambda_handler(request: api.Request):
 
 `api.Request` exposes `authorizer`, `body`, `path`, `query`, `headers`, `identity`.
 All but `body` are `AttrDict` — `request.path.user_id` shortcut for `request.path["user_id"]`.
+
+### Async handlers (`api.async_handler`)
+
+Same contract as `@api.handler`, but for `async def` handlers — needed when
+the body awaits coroutines (FastAPI/Mangum integration, async DB sessions,
+async HTTP clients).
+
+```python
+from serpens import api
+from serpens.database import async_db_session
+
+@api.async_handler
+async def lambda_handler(request: api.Request):
+    async with async_db_session() as sess:
+        ...
+```
+
+**Why use it**
+
+- **Single response/error contract.** `_build_response` and `_error_response`
+  are shared with the sync version: same response shape, same elastic-apm
+  capture, same JSON encoding via `SchemaEncoder`. No drift between sync
+  and async handler responses across services.
+- **Required to use async SQLAlchemy / `httpx` / `cache_async` inside a
+  Lambda.** A regular `@api.handler` cannot `await`.
+
+**Migration scenarios**
+
+| Today's code | Move to | What you gain |
+|---|---|---|
+| `@api.handler def lambda_handler(...)` that calls `asyncio.run(...)` internally | `@api.async_handler async def lambda_handler(...)` | One event loop per invocation, no `asyncio.run` boilerplate, can use async libs throughout the handler |
+| FastAPI / Mangum bridge with hand-rolled response shaping | `@api.async_handler` | Same response shape across sync/async Lambdas, central elastic-apm capture |
+
+The sync `@api.handler` (`platform-messages`, `platform-servicing`) remains
+the right choice when the handler has no async work.
 
 ## Schema
 
@@ -77,9 +112,41 @@ Thin layer over **SQLAlchemy 2.0**. Owns:
 - Session factories (`SessionLocal`, `AsyncSessionLocal`).
 - Declarative `Base` and `TimestampMixin`.
 - Alembic helper (see [Migrations](#migrations)).
+- Generic `Repository[T]` / `AsyncRepository[T]` covering the CRUD every
+  service used to re-implement.
 
 Query construction stays in `sqlalchemy` proper — the lib does not re-export
 `select`, `Integer`, etc.
+
+### Why use it
+
+- **Production hardening baked in.** `statement_timeout`, `lock_timeout`,
+  `idle_in_transaction_session_timeout`, Cloud SQL keepalives, pool tuning
+  and `pool_pre_ping` apply automatically. Apps that hand-roll
+  `create_engine(...)` skip this; the lib makes it the default.
+- **One source of truth for engine config.** Pool size, recycle, LIFO
+  checkout, Postgres timeouts — all env-driven, consistent across services.
+  No more per-app drift on `max_overflow` or `pool_recycle`.
+- **Symmetric sync/async.** `bind` / `async_bind`, `SessionLocal` /
+  `AsyncSessionLocal`, `db_session` / `async_db_session`. Same mental
+  model on either side; mix freely.
+- **`Repository[T]` removes CRUD boilerplate.** PK lookup, filtered query,
+  paginate, add, bulk_add, `upsert` (Postgres `ON CONFLICT RETURNING`),
+  with deliberate gaps where services should diverge (no hard-delete, no
+  partial update — see recipes).
+- **Alembic glue.** `serpens.database.alembic.run_migrations(metadata)`
+  drives migrations from a Lambda or CLI with one line in `env.py`.
+
+### Migration scenarios
+
+| Today's code | Move to | What you gain |
+|---|---|---|
+| Hand-rolled `create_engine(...) + sessionmaker(...)` (e.g. `platform-conciliation/src/common/database.py`) | `serpens.database.bind` + `SessionLocal` / `db_session` | Postgres timeouts, Cloud SQL keepalives, env-driven pool tuning, scheme normalization, `pool_pre_ping`, Lambda-aware defaults |
+| Pony ORM (`platform-servicing`, `platform-messages`) | `serpens.database` + SQLAlchemy 2.0 | Async support, typed `Mapped[...]` columns, Alembic instead of yoyo, the SA 2.0 ecosystem; see [Migrating from Pony ORM](#migrating-from-pony-orm) |
+| Per-service CRUD repositories (each app has its own `get_by_id`, `list`, `paginate`) | `serpens.database.Repository[T]` / `AsyncRepository[T]` | Shared base, `upsert` primitive for idempotency, NotFound exception, free pagination |
+| Direct `redis.asyncio.Redis` + manual `aclose()` in DB-adjacent code | `serpens.database.async_bind` + `async_db_session` | Lifecycle helpers, autoflush=False, expire_on_commit=False sensible defaults |
+
+Existing app to follow as POC: `platform-agreements` (full SA 2.0 + Alembic adoption is in `feat/migrate-pony-to-sqlalchemy`).
 
 ### Hello world (sync)
 
@@ -439,6 +506,29 @@ async def proxy(client: AsyncClient = Depends(get_client)):
 Timeout defaults to `HTTP_CLIENT_TIMEOUT` (env, seconds) or 30s. Extra kwargs
 pass through to `httpx.AsyncClient`.
 
+### Why use it
+
+- **Pool reuse across requests.** A new `AsyncClient(...)` per request
+  creates and tears down TCP+TLS connections every call. The singleton
+  amortises the handshake across the lifetime of the process — material
+  latency win on chatty integrations.
+- **One lifecycle to wire.** `init_client` / `close_client` plug into
+  FastAPI `lifespan` (or `startup`/`shutdown` for older versions). No
+  per-handler instantiation boilerplate.
+- **Env-driven timeout.** `HTTP_CLIENT_TIMEOUT` standardises the cap;
+  per-service overrides through the same channel.
+
+### Migration scenarios
+
+| Today's code | Move to | What you gain |
+|---|---|---|
+| `async with httpx.AsyncClient() as client: await client.get(...)` per call | `init_client()` in lifespan + `get_client()` in handlers | Pool reuse, lower TCP/TLS overhead, central timeout |
+| `requests.get(...)` (sync) inside a FastAPI handler | `init_client()` + `await client.get(...)` | Stops blocking the event loop for the duration of the call |
+| Per-service `aiohttp` / `httpx` singleton with hand-rolled lifecycle | `serpens.http_client` | Shared implementation, one less file per repo |
+
+Greenfield FastAPI services adopt this from day one; existing async services
+swap a couple of imports.
+
 ## Rate limiter
 
 Token-bucket limiter for outbound calls plus an `auth_lock` that serializes
@@ -463,6 +553,31 @@ async def fetch_token():
     async with limiter.auth_lock:
         return await cached_get_or_set("token", 1800, _refresh_token)
 ```
+
+### Why use it
+
+- **Respects upstream quotas without manual back-off.** Most third-party
+  APIs (banks, KYC providers, credit bureaus) cap requests-per-second;
+  exceeding it triggers 429s or temporary blocks. Token bucket gives a
+  smooth, predictable throughput at the configured ceiling.
+- **`auth_lock` solves the thundering herd.** When a JWT/OAuth token
+  expires, every concurrent coroutine tries to refresh at the same time.
+  The lock guarantees one refresh per expiry while the rest wait on it.
+- **Asyncio-native.** No third-party `aiolimiter` dependency; replenisher
+  runs as an `asyncio.Task` you control via `start`/`stop`.
+
+### Migration scenarios
+
+| Today's code | Move to | What you gain |
+|---|---|---|
+| `asyncio.Semaphore(N)` hand-rolled to cap concurrency | `RateLimiter(rate=N, per_seconds=...)` | Time-based replenishment instead of pure concurrency cap; predictable RPS |
+| `aiolimiter` / external rate-limit lib | `serpens.rate_limit` | One less dep; same primitive |
+| No rate limiting at all (calls 3rd-party until 429) | `serpens.rate_limit` | Stops invalidating provider relationships and triggering exponential back-off cascades |
+| Hand-rolled `asyncio.Lock` around token refresh | `limiter.auth_lock` | Bundled with the rate limit; less wiring |
+
+Typical fit: any FastAPI / async service calling a quoted upstream
+(banking, KYC, payment processor). Worth adopting alongside
+`serpens.http_client` since they cover the same call path.
 
 ## Cache
 
@@ -628,3 +743,81 @@ async def lifespan(_app):
 async def emit(payload: dict):
     await publisher.publish(settings.MY_TOPIC, payload)
 ```
+
+### Why use it
+
+- **Doesn't block the event loop.** The Google SDK is synchronous (returns
+  a `concurrent.futures.Future`). Without `asyncio.wrap_future`, awaiting
+  a publish in a FastAPI handler stalls every other request on the same
+  worker. `AsyncPublisher` bridges the gap.
+- **Terraform-friendly topic id.** Accepts `projects/.../topics/...`
+  directly — same value already exposed as `MY_TOPIC` env in your
+  Terraform module. No need to keep `project_id` separately and call
+  `client.topic_path(project, topic)` everywhere.
+- **APM observability for free.** When `elasticapm` is installed, every
+  publish emits a `messaging` span with `queue_name=<topic>`. No-op if
+  APM isn't present.
+- **Single connection per process.** The client is instantiated once on
+  app boot; gRPC channel reuse cuts per-publish overhead.
+
+### Migration scenarios
+
+| Today's code | Move to | What you gain |
+|---|---|---|
+| `pubsub_v1.PublisherClient()` + `client.topic_path(project, topic)` + `future.result()` per publish (`platform-servicing` patterns) | `AsyncPublisher()` + `await publisher.publish(topic, payload)` | Non-blocking publish, full topic id, central APM span emission, one client per process |
+| `serpens.pubsub.publish_message(...)` (sync, creates a new `PublisherClient` per call) inside an async handler | `AsyncPublisher` | Avoids the per-call client construction; no event loop blocking |
+| Two services with their own `TracedMessagePublisher` wrapper (e.g. `integrator-vcom`) | `AsyncPublisher` | Removes the duplicated wrapper; spans emitted from the lib |
+
+The sync `serpens.pubsub.publish_message` / `publish_message_batch` remain
+the right choice for Lambda one-shots or non-async code paths.
+
+## Test infrastructure (testgres)
+
+`serpens.testgres.setup` wires a Postgres (and optionally Redis) container
+into a `unittest`/`pytest` suite, running `create_all` against your
+`Base.metadata` before the first test.
+
+```python
+# conftest.py
+from serpens import testgres
+from myapp.models import Base
+
+testgres.setup(Base, async_mode=True, redis_mode=True)
+```
+
+### Modes
+
+| Flag | Effect | When to enable |
+|---|---|---|
+| (default) | Spins a Postgres container, binds `database.SessionLocal` (sync) | Lambda services / sync codebases |
+| `async_mode=True` | Also binds `database.AsyncSessionLocal` with `NullPool` | FastAPI services / async tests; remove the per-conftest async engine wiring |
+| `redis_mode=True` | Spins a Redis container alongside Postgres, exports `REDIS_URL` | Services using `serpens.cache.redis_*` or `fastapi_extras` Redis; replaces the manual `docker run redis` boilerplate that lives in `pix-automatic` / `integrator-vcom` test setup |
+| `default_schema="x,y"` | Pre-creates the schemas and sets `search_path` | Services using schema scoping via `declarative_base(schema=...)` |
+| `uri=...` / `DATABASE_URL` env | Skips the container, uses the provided URI | CI runners that already have Postgres available |
+| `REDIS_URL` env (when `redis_mode=True`) | Skips the Redis container, uses the provided URL | CI runners with existing Redis |
+
+### Why use it
+
+- **One conftest line replaces a dozen.** Tests that previously wired
+  `create_engine`, `metadata.create_all`, `sessionmaker`, container
+  lifecycle, schema setup and Redis container setup collapse to a single
+  `setup(...)` call.
+- **Real Postgres in tests.** Caught the kind of bug SQLite can't model
+  (`ON CONFLICT`, `JSONB` operators, schema-qualified names). Same engine
+  semantics as production.
+- **Async + sync engines wired together.** Both `SessionLocal` and
+  `AsyncSessionLocal` point at the same database — tests can mix.
+- **Defers `create_all` to `startTestRun`.** Models registered after
+  `setup()` returns (common when tests do dynamic imports) still get
+  their tables.
+- **Graceful failure.** Waits for the published TCP port and a real
+  `psycopg2.connect`, raising a clear `RuntimeError` if the container
+  doesn't come up — no more silent test hangs.
+
+### Migration scenarios
+
+| Today's code | Move to | What you gain |
+|---|---|---|
+| Hand-rolled `docker run postgres:13` in test setup + manual `create_engine` + `metadata.create_all` | `serpens.testgres.setup(Base)` | Container lifecycle, schema bootstrap, sane defaults, error propagation |
+| Test suite that wires async engine separately from sync (parallel `AsyncSessionLocal` setup in `conftest.py`) | `setup(Base, async_mode=True)` | One factory wired automatically with `NullPool` (correct for tests) |
+| `pix-automatic` / `integrator-vcom` style: `docker run postgres` + `docker run redis` boilerplate in `conftest.py` | `setup(Base, redis_mode=True)` | One call, both containers, env vars exported |

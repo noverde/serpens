@@ -45,13 +45,6 @@ _async_engine: Optional[AsyncEngine] = None
 SessionLocal: Optional[sessionmaker] = None
 AsyncSessionLocal: Optional[async_sessionmaker] = None
 
-_ASYNC_SCHEMES = {
-    "postgres://": "postgresql+asyncpg://",
-    "postgresql://": "postgresql+asyncpg://",
-    "postgresql+psycopg2://": "postgresql+asyncpg://",
-    "sqlite://": "sqlite+aiosqlite://",
-}
-
 
 def _on_connect(dbapi_conn, _):
     stmt_ms = int(os.getenv("DB_STATEMENT_TIMEOUT_MS", "5000"))
@@ -98,6 +91,14 @@ def _normalize_sync_url(url):
     if url and url.startswith("postgres://"):
         return "postgresql+psycopg2://" + url.removeprefix("postgres://")
     return url
+
+
+_ASYNC_SCHEMES = {
+    "postgres://": "postgresql+asyncpg://",
+    "postgresql://": "postgresql+asyncpg://",
+    "postgresql+psycopg2://": "postgresql+asyncpg://",
+    "sqlite://": "sqlite+aiosqlite://",
+}
 
 
 def _normalize_async_url(url):
