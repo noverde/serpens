@@ -469,6 +469,35 @@ async def fetch_token():
 `serpens.cache` ships three flavors in a single module. Pick by sync/async
 and by scope (process-local vs distributed).
 
+### Why use it
+
+- **Fails open.** A Redis outage degrades to "no cache" instead of crashing
+  the caller. Reads return `None` (treated as miss), writes/deletes become
+  no-ops, decorators fall through to the wrapped function. Each failure
+  logs a warning. This is the property the existing
+  `fastapi_extras.databases.redis.RedisManager` does not provide.
+- **Single source of truth.** Stops the per-service drift (in-process TTL
+  caches reimplemented in each repo, Redis lifecycle wired by hand, etc.).
+- **Symmetric APIs.** Sync, async in-process and async Redis share the
+  same mental model: decorator-based caching plus low-level get/set/delete.
+- **Lifecycle helpers built in** for the Redis flavor — `redis_init` /
+  `redis_close` for module-level singleton usage, `redis_pool` for FastAPI
+  `Depends` injection.
+- **JSON serialization for free** on `redis_get` / `redis_set` /
+  `redis_cached`; raw bytes are still available through `redis_pool`
+  when needed.
+
+### Migration scenarios
+
+| Today's code | Move to | What you gain |
+|---|---|---|
+| `fastapi_extras.databases.redis.RedisManager` as `Depends` factory | `serpens.cache.redis_pool` | Fail-open client on Redis outage; same `Depends` contract, one-line swap |
+| App-local `acached` / in-process async TTL cache (e.g. `platform-agreements/agreements/cache.py`) | `serpens.cache.acached` | One implementation maintained centrally; monotonic-clock TTL; same `self`-aware key heuristic |
+| Direct `Redis.from_url(...)` + manual `aclose()` in Lambda | `serpens.cache.redis_init` / `redis_close` / `redis_get` / `redis_set` / `redis_cached` | Lifecycle helpers, auto JSON serialization, fail-open, env-driven prefix/TTL |
+| `serpens.cache.cached` (sync legacy) | unchanged | Already lives here; consumed by `parameters` and `secrets_manager` |
+
+The migration is intentionally minimal — typically a single import line per app. The behavior gain (Redis outages no longer break callers) is automatic on the new APIs.
+
 ### Sync, in-process (legacy)
 
 Used by `serpens.parameters`, `serpens.secrets_manager` and downstream

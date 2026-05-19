@@ -53,13 +53,6 @@ def clear_cache(cache_name):
 _acache: dict = {}
 
 
-def clear_acache(cache_name: Optional[str] = None) -> None:
-    if cache_name is None:
-        _acache.clear()
-    else:
-        _acache.pop(cache_name, None)
-
-
 def acached(cache_name: str, ttl_seconds: int) -> Callable:
     def decorator(func):
         @wraps(func)
@@ -77,6 +70,13 @@ def acached(cache_name: str, ttl_seconds: int) -> Callable:
         return wrapper
 
     return decorator
+
+
+def clear_acache(cache_name: Optional[str] = None) -> None:
+    if cache_name is None:
+        _acache.clear()
+    else:
+        _acache.pop(cache_name, None)
 
 
 REDIS_DEFAULT_TTL = int(os.getenv("CACHE_TTL", "300"))
