@@ -466,8 +466,14 @@ async def fetch_token():
 
 ## Async Redis cache
 
-Async, Redis-backed counterpart of `serpens.cache` (which is in-memory). Use
-in FastAPI / long-running services that need a shared cache across workers.
+Async, Redis-backed counterpart of `serpens.cache_inmem`. Use in FastAPI /
+long-running services that need a shared cache across workers/instances.
+
+**Fails open.** If Redis is unreachable (host down, timeout, refused
+connection), `get` returns `None` (treated as cache miss), `set`/`delete`
+become no-ops, and `cached_get_or_set` falls through to the underlying
+function. Every failure logs a warning. Programming errors (using the
+client before `init()`) still raise `RuntimeError`.
 
 ```python
 from serpens.cache_async import cached, cached_get_or_set, close, delete, get, init, set_
@@ -498,6 +504,31 @@ async def get_product(slug: str):
 Postgres and exports `REDIS_URL` to the test environment — `cache_async.init()`
 picks it up without further config. If `REDIS_URL` is already set, the existing
 instance is reused.
+
+## In-process async cache
+
+`serpens.cache_inmem` is an in-process TTL cache for read-mostly data that
+benefits from warm-container reuse within a single Lambda / FastAPI
+instance. No external dependency. For cache shared across processes or
+instances, use `serpens.cache_async`.
+
+```python
+from serpens.cache_inmem import cached, clear_cache
+
+class ProductRepo:
+    @cached("products", ttl_seconds=600)
+    async def get_by_slug(self, slug: str):
+        return await self.session.scalar(select(Product).where(Product.slug == slug))
+
+clear_cache("products")  # invalidate one bucket
+clear_cache()            # invalidate everything
+```
+
+The decorator skips the first positional argument when building the key,
+on the assumption it's `self` (a repository or service object pointing at
+the same store). Different instances therefore share entries — fine for
+read-mostly data; switch to `cache_async` if you need per-tenant
+isolation across processes.
 
 ## Async Pub/Sub publisher
 

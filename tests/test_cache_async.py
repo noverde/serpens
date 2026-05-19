@@ -2,6 +2,8 @@ import json
 import unittest
 from unittest.mock import AsyncMock, patch
 
+from redis.exceptions import ConnectionError as RedisConnectionError
+
 import cache_async
 
 
@@ -79,3 +81,61 @@ class CacheAsyncTests(unittest.IsolatedAsyncioTestCase):
         # Stored values are JSON-encoded.
         self.assertIn(f"{cache_async.PREFIX}:memo:1:2", self.stub.store)
         self.assertEqual(json.loads(self.stub.store[f"{cache_async.PREFIX}:memo:1:2"]), 3)
+
+
+class CacheAsyncFaultToleranceTests(unittest.IsolatedAsyncioTestCase):
+    """Redis outage must not break callers."""
+
+    async def asyncSetUp(self):
+        self.stub = _AsyncRedisStub()
+        self.stub.get.side_effect = RedisConnectionError("host unreachable")
+        self.stub.set.side_effect = RedisConnectionError("host unreachable")
+        self.stub.delete.side_effect = RedisConnectionError("host unreachable")
+        self._patcher = patch.object(cache_async.Redis, "from_url", return_value=self.stub)
+        self._patcher.start()
+        await cache_async.init(url="redis://test")
+
+    async def asyncTearDown(self):
+        await cache_async.close()
+        self._patcher.stop()
+
+    async def test_get_returns_none_when_redis_unreachable(self):
+        self.assertIsNone(await cache_async.get("anything"))
+
+    async def test_set_swallows_redis_error(self):
+        # Must not raise.
+        await cache_async.set_("k", {"v": 1})
+
+    async def test_delete_swallows_redis_error(self):
+        # Must not raise.
+        await cache_async.delete("k")
+
+    async def test_cached_get_or_set_falls_through_to_func_on_failure(self):
+        calls = []
+
+        async def producer():
+            calls.append(1)
+            return {"value": 42}
+
+        # GET fails, producer runs; SET fails, the producer's value still returns.
+        result = await cache_async.cached_get_or_set("k", 60, producer)
+        self.assertEqual(result, {"value": 42})
+        self.assertEqual(calls, [1])
+
+    async def test_cached_decorator_keeps_serving_during_outage(self):
+        calls = []
+
+        @cache_async.cached("memo", ttl=60)
+        async def f(x):
+            calls.append(x)
+            return x * 2
+
+        self.assertEqual(await f(5), 10)
+        self.assertEqual(await f(5), 10)
+        # No cache means producer ran twice — degraded but functional.
+        self.assertEqual(calls, [5, 5])
+
+    async def test_init_failure_propagates_for_uninitialized_client(self):
+        await cache_async.close()
+        with self.assertRaises(RuntimeError):
+            await cache_async.get("anything")

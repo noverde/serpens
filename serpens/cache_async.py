@@ -1,11 +1,22 @@
-"""Async Redis-backed cache: singleton client, helpers and a `cached` decorator."""
+"""Async Redis-backed cache: singleton client, helpers and a `cached` decorator.
+
+Operations fail open: if the Redis client raises ``RedisError`` (connection
+refused, timeout, host unreachable), the cache behaves as a miss for reads
+and a no-op for writes. Callers see ``None`` from ``get`` and their function
+still runs through ``cached_get_or_set``. Programming errors (calling
+``get`` before ``init``) still propagate as ``RuntimeError``.
+"""
 
 import json
+import logging
 import os
 from functools import wraps
 from typing import Any, Callable, Optional
 
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_TTL = int(os.getenv("CACHE_TTL", "300"))
 PREFIX = os.getenv("CACHE_PREFIX", "serpens")
@@ -39,26 +50,48 @@ def _key(name: str) -> str:
     return f"{PREFIX}:{name}"
 
 
+async def _safe_get(key: str) -> Optional[str]:
+    try:
+        return await get_client().get(_key(key))
+    except RedisError as exc:
+        logger.warning("cache_async GET failed for %s: %s", key, exc)
+        return None
+
+
+async def _safe_set(key: str, value: str, ttl: int) -> None:
+    try:
+        await get_client().set(_key(key), value, ex=ttl)
+    except RedisError as exc:
+        logger.warning("cache_async SET failed for %s: %s", key, exc)
+
+
+async def _safe_delete(key: str) -> None:
+    try:
+        await get_client().delete(_key(key))
+    except RedisError as exc:
+        logger.warning("cache_async DELETE failed for %s: %s", key, exc)
+
+
 async def get(key: str) -> Any:
-    raw = await get_client().get(_key(key))
+    raw = await _safe_get(key)
     return None if raw is None else json.loads(raw)
 
 
 async def set_(key: str, value: Any, ttl: int = DEFAULT_TTL) -> None:
-    await get_client().set(_key(key), json.dumps(value, default=str), ex=ttl)
+    await _safe_set(key, json.dumps(value, default=str), ttl)
 
 
 async def delete(key: str) -> None:
-    await get_client().delete(_key(key))
+    await _safe_delete(key)
 
 
 async def cached_get_or_set(key: str, ttl: int, func: Callable, *args, **kwargs) -> Any:
-    raw = await get_client().get(_key(key))
+    raw = await _safe_get(key)
     if raw is not None:
         return json.loads(raw)
     value = await func(*args, **kwargs)
     if value is not None:
-        await get_client().set(_key(key), json.dumps(value, default=str), ex=ttl)
+        await _safe_set(key, json.dumps(value, default=str), ttl)
     return value
 
 
