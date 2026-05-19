@@ -8,7 +8,7 @@ for the configuration that should not be duplicated across 24 repos.
 - [SQS](#sqs) · [Lambda API](#lambda-api) · [Schema](#schema) · [CSV](#csv)
 - [Database](#database) · [Migrations](#migrations) · [Pony → SQLAlchemy](#migrating-from-pony-orm)
 - [DynamoDB](#dynamodb) · [Async HTTP](#async-http-client) · [Rate limiter](#rate-limiter)
-- [Async Redis cache](#async-redis-cache) · [Async Pub/Sub](#async-pubsub-publisher)
+- [Cache](#cache) · [Async Pub/Sub](#async-pub-sub-publisher)
 
 ## SQS
 
@@ -464,30 +464,75 @@ async def fetch_token():
         return await cached_get_or_set("token", 1800, _refresh_token)
 ```
 
-## Async Redis cache
+## Cache
 
-Async, Redis-backed counterpart of `serpens.cache_inmem`. Use in FastAPI /
-long-running services that need a shared cache across workers/instances.
+`serpens.cache` ships three flavors in a single module. Pick by sync/async
+and by scope (process-local vs distributed).
 
-**Fails open.** If Redis is unreachable (host down, timeout, refused
-connection), `get` returns `None` (treated as cache miss), `set`/`delete`
-become no-ops, and `cached_get_or_set` falls through to the underlying
-function. Every failure logs a warning. Programming errors (using the
-client before `init()`) still raise `RuntimeError`.
+### Sync, in-process (legacy)
+
+Used by `serpens.parameters`, `serpens.secrets_manager` and downstream
+services. TTL bucketed by name.
 
 ```python
-from serpens.cache_async import cached, cached_get_or_set, close, delete, get, init, set_
+from serpens.cache import cached, clear_cache
+
+@cached("secrets_manager", 900)
+def get(secret_id):
+    ...
+
+clear_cache("secrets_manager")
+```
+
+### Async, in-process
+
+`acached` / `clear_acache` — same idea, for `async def` callers. The
+decorator drops the first positional argument from the key, on the
+assumption it's `self` (a repository or service object pointing at the
+same store). Different instances therefore share entries — fine for
+read-mostly data. Uses `time.monotonic` so TTL is immune to clock
+adjustments.
+
+```python
+from serpens.cache import acached, clear_acache
+
+class ProductRepo:
+    @acached("products", ttl_seconds=600)
+    async def get_by_slug(self, slug: str):
+        return await self.session.scalar(select(Product).where(Product.slug == slug))
+
+clear_acache("products")  # one bucket
+clear_acache()            # everything
+```
+
+### Async, Redis-backed
+
+For FastAPI / long-running services that need a cache shared across
+workers and instances. Lifecycle: `redis_init` once at startup,
+`redis_close` at shutdown.
+
+**Fails open.** On `RedisError` (host unreachable, timeout, refused
+connection) reads return `None` (treated as miss), writes/deletes become
+no-ops, and `redis_cached_get_or_set` falls through to the wrapped
+function. Each failure logs a warning. Programming errors (using the
+client before `redis_init`) still raise `RuntimeError`.
+
+```python
+from serpens.cache import (
+    redis_init, redis_close, redis_get, redis_set, redis_delete,
+    redis_cached, redis_cached_get_or_set,
+)
 
 @asynccontextmanager
 async def lifespan(_app):
-    await init()
+    await redis_init()
     yield
-    await close()
+    await redis_close()
 
-await set_("user:42", {"name": "Ana"}, ttl=60)
-user = await get("user:42")
+await redis_set("user:42", {"name": "Ana"}, ttl=60)
+user = await redis_get("user:42")
 
-@cached("products", ttl=600)
+@redis_cached("products", ttl=600)
 async def get_product(slug: str):
     return await fetch_product(slug)
 ```
@@ -496,39 +541,14 @@ async def get_product(slug: str):
 |---|---|---|
 | `REDIS_URL` | — | Redis connection string. |
 | `CACHE_PREFIX` | `serpens` | Prefix prepended to every key. Set per-service. |
-| `CACHE_TTL` | `300` | Default TTL for `set_` / `cached`. |
+| `CACHE_TTL` | `300` | Default TTL for `redis_set` / `redis_cached`. |
 
-### In tests
+#### In tests
 
 `testgres.setup(Base, redis_mode=True)` spins a Redis container alongside
-Postgres and exports `REDIS_URL` to the test environment — `cache_async.init()`
-picks it up without further config. If `REDIS_URL` is already set, the existing
-instance is reused.
-
-## In-process async cache
-
-`serpens.cache_inmem` is an in-process TTL cache for read-mostly data that
-benefits from warm-container reuse within a single Lambda / FastAPI
-instance. No external dependency. For cache shared across processes or
-instances, use `serpens.cache_async`.
-
-```python
-from serpens.cache_inmem import cached, clear_cache
-
-class ProductRepo:
-    @cached("products", ttl_seconds=600)
-    async def get_by_slug(self, slug: str):
-        return await self.session.scalar(select(Product).where(Product.slug == slug))
-
-clear_cache("products")  # invalidate one bucket
-clear_cache()            # invalidate everything
-```
-
-The decorator skips the first positional argument when building the key,
-on the assumption it's `self` (a repository or service object pointing at
-the same store). Different instances therefore share entries — fine for
-read-mostly data; switch to `cache_async` if you need per-tenant
-isolation across processes.
+Postgres and exports `REDIS_URL` — `redis_init()` picks it up without
+further config. If `REDIS_URL` is already set, the existing instance is
+reused.
 
 ## Async Pub/Sub publisher
 
