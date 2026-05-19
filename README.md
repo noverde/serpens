@@ -543,6 +543,31 @@ async def get_product(slug: str):
 | `CACHE_PREFIX` | `serpens` | Prefix prepended to every key. Set per-service. |
 | `CACHE_TTL` | `300` | Default TTL for `redis_set` / `redis_cached`. |
 
+#### FastAPI `Depends` style
+
+`redis_pool(url)` returns a callable suitable for FastAPI `Depends`,
+yielding a fail-open Redis client per request. The same fail-open
+semantics apply: `get` returns `None`, `set`/`delete` no-op on
+`RedisError`.
+
+```python
+from fastapi import Depends, FastAPI
+from redis.asyncio import Redis
+from serpens.cache import redis_pool
+
+app = FastAPI()
+cache = redis_pool(settings.REDIS_URL)
+
+@app.get("/users/{user_id}")
+async def get_user(user_id: str, client: Redis = Depends(cache)):
+    return await client.get(f"user:{user_id}")
+```
+
+Use this when the rest of the app expects a `redis.asyncio.Redis`
+client (e.g. when wiring third-party libraries that take `cache_gen`).
+For Lambda / single-process apps, the `redis_*` module-level functions
+above are simpler.
+
 #### In tests
 
 `testgres.setup(Base, redis_mode=True)` spins a Redis container alongside

@@ -1,11 +1,18 @@
 import json
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from redis.exceptions import ConnectionError as RedisConnectionError
 
 import cache
 from tests.fixtures.fixtures import ClsCached
+
+
+def _fake_pool() -> MagicMock:
+    """MagicMock that satisfies ``redis.asyncio.Redis.__init__``."""
+    pool = MagicMock()
+    pool.connection_kwargs = {}
+    return pool
 
 
 class TestSCache(unittest.TestCase):
@@ -270,3 +277,46 @@ class RedisCacheFaultToleranceTests(unittest.IsolatedAsyncioTestCase):
         await cache.redis_close()
         with self.assertRaises(RuntimeError):
             await cache.redis_get("anything")
+
+
+class RedisPoolTests(unittest.IsolatedAsyncioTestCase):
+    async def test_redis_pool_returns_callable(self):
+        pool = cache.redis_pool("redis://test")
+        self.assertTrue(callable(pool))
+
+    async def test_redis_pool_yields_safe_redis(self):
+        with patch.object(cache, "ConnectionPool") as pool_cls:
+            pool_cls.from_url.return_value = _fake_pool()
+            pool = cache.redis_pool("redis://test")
+            gen = pool()
+            with patch.object(cache._SafeRedis, "aclose", new=AsyncMock()):
+                client = await gen.__anext__()
+                self.assertIsInstance(client, cache._SafeRedis)
+                with self.assertRaises(StopAsyncIteration):
+                    await gen.__anext__()
+
+    async def test_safe_redis_get_returns_none_on_redis_error(self):
+        client = cache._SafeRedis(connection_pool=_fake_pool())
+        with patch.object(
+            cache.Redis, "get", new=AsyncMock(side_effect=RedisConnectionError("down"))
+        ):
+            self.assertIsNone(await client.get("k"))
+
+    async def test_safe_redis_set_swallows_redis_error(self):
+        client = cache._SafeRedis(connection_pool=_fake_pool())
+        with patch.object(
+            cache.Redis, "set", new=AsyncMock(side_effect=RedisConnectionError("down"))
+        ):
+            self.assertIsNone(await client.set("k", "v"))
+
+    async def test_safe_redis_delete_returns_zero_on_redis_error(self):
+        client = cache._SafeRedis(connection_pool=_fake_pool())
+        with patch.object(
+            cache.Redis, "delete", new=AsyncMock(side_effect=RedisConnectionError("down"))
+        ):
+            self.assertEqual(await client.delete("k"), 0)
+
+    async def test_safe_redis_passes_through_on_success(self):
+        client = cache._SafeRedis(connection_pool=_fake_pool())
+        with patch.object(cache.Redis, "get", new=AsyncMock(return_value="value")):
+            self.assertEqual(await client.get("k"), "value")

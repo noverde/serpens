@@ -8,9 +8,9 @@ import os
 import time
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, AsyncGenerator, Callable, Optional, Union
 
-from redis.asyncio import Redis
+from redis.asyncio import ConnectionPool, Redis
 from redis.exceptions import RedisError
 
 logger = logging.getLogger(__name__)
@@ -166,3 +166,54 @@ def redis_cached(name: str, ttl: int = REDIS_DEFAULT_TTL):
         return wrapper
 
     return decorator
+
+
+class _SafeRedis(Redis):
+    """``redis.asyncio.Redis`` subclass with fail-open get/set/delete."""
+
+    async def get(self, name, *args, **kwargs):
+        try:
+            return await super().get(name, *args, **kwargs)
+        except RedisError as exc:
+            logger.warning("redis GET failed for %s: %s", name, exc)
+            return None
+
+    async def set(self, name, value, *args, **kwargs):
+        try:
+            return await super().set(name, value, *args, **kwargs)
+        except RedisError as exc:
+            logger.warning("redis SET failed for %s: %s", name, exc)
+            return None
+
+    async def delete(self, *names):
+        try:
+            return await super().delete(*names)
+        except RedisError as exc:
+            logger.warning("redis DELETE failed: %s", exc)
+            return 0
+
+
+class _RedisPool:
+    def __init__(self, url: Union[str, Any]):
+        self.pool = ConnectionPool.from_url(str(url))
+
+    async def __call__(self) -> AsyncGenerator[_SafeRedis, None]:
+        client = _SafeRedis(connection_pool=self.pool)
+        try:
+            yield client
+        finally:
+            await client.aclose()
+
+
+def redis_pool(url: Union[str, Any]) -> _RedisPool:
+    """FastAPI ``Depends``-compatible Redis factory; yielded clients are fail-open.
+
+    Drop-in for ``fastapi_extras.databases.redis.RedisManager``:
+
+        cache = redis_pool(settings.REDIS_URL)
+
+        @app.get("/")
+        async def endpoint(client: Redis = Depends(cache)):
+            ...
+    """
+    return _RedisPool(url)
