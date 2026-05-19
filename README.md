@@ -67,8 +67,8 @@ async def lambda_handler(request: api.Request):
 | `@api.handler def lambda_handler(...)` that calls `asyncio.run(...)` internally | `@api.async_handler async def lambda_handler(...)` | One event loop per invocation, no `asyncio.run` boilerplate, can use async libs throughout the handler |
 | FastAPI / Mangum bridge with hand-rolled response shaping | `@api.async_handler` | Same response shape across sync/async Lambdas, central elastic-apm capture |
 
-The sync `@api.handler` (`platform-messages`, `platform-servicing`) remains
-the right choice when the handler has no async work.
+The sync `@api.handler` remains the right choice when the handler has no
+async work.
 
 ## Schema
 
@@ -141,12 +141,10 @@ Query construction stays in `sqlalchemy` proper — the lib does not re-export
 
 | Today's code | Move to | What you gain |
 |---|---|---|
-| Hand-rolled `create_engine(...) + sessionmaker(...)` (e.g. `platform-conciliation/src/common/database.py`) | `serpens.database.bind` + `SessionLocal` / `db_session` | Postgres timeouts, Cloud SQL keepalives, env-driven pool tuning, scheme normalization, `pool_pre_ping`, Lambda-aware defaults |
-| Pony ORM (`platform-servicing`, `platform-messages`) | `serpens.database` + SQLAlchemy 2.0 | Async support, typed `Mapped[...]` columns, Alembic instead of yoyo, the SA 2.0 ecosystem; see [Migrating from Pony ORM](#migrating-from-pony-orm) |
-| Per-service CRUD repositories (each app has its own `get_by_id`, `list`, `paginate`) | `serpens.database.Repository[T]` / `AsyncRepository[T]` | Shared base, `upsert` primitive for idempotency, NotFound exception, free pagination |
-| Direct `redis.asyncio.Redis` + manual `aclose()` in DB-adjacent code | `serpens.database.async_bind` + `async_db_session` | Lifecycle helpers, autoflush=False, expire_on_commit=False sensible defaults |
-
-Existing app to follow as POC: `platform-agreements` (full SA 2.0 + Alembic adoption is in `feat/migrate-pony-to-sqlalchemy`).
+| Hand-rolled `create_engine(...) + sessionmaker(...)` | `serpens.database.bind` + `SessionLocal` / `db_session` | Postgres timeouts, Cloud SQL keepalives, env-driven pool tuning, scheme normalization, `pool_pre_ping`, Lambda-aware defaults |
+| Pony ORM | `serpens.database` + SQLAlchemy 2.0 | Async support, typed `Mapped[...]` columns, Alembic instead of yoyo, the SA 2.0 ecosystem; see [Migrating from Pony ORM](#migrating-from-pony-orm) |
+| Per-service CRUD repositories (each app reimplements `get_by_id`, `list`, `paginate`) | `serpens.database.Repository[T]` / `AsyncRepository[T]` | Shared base, `upsert` primitive for idempotency, `NotFound` exception, free pagination |
+| Direct `redis.asyncio.Redis` + manual `aclose()` in DB-adjacent code | `serpens.database.async_bind` + `async_db_session` | Lifecycle helpers, `autoflush=False`, `expire_on_commit=False` sensible defaults |
 
 ### Hello world (sync)
 
@@ -285,7 +283,7 @@ class ProductRepo(AsyncRepository[Product]):
         return await self.get_by(slug=slug)
 
 async with async_db_session() as sess:
-    p = await ProductRepo(sess).by_slug("noverde_empirica")
+    p = await ProductRepo(sess).by_slug("some-product")
 ```
 
 Built-in methods: `get`, `get_or_raise` (raises `serpens.database.NotFound`),
@@ -386,14 +384,11 @@ def migrate_handler(event, context):
     command.upgrade(cfg, "head")
 ```
 
-Reference setup: [`platform-agreements/alembic`](https://github.com/DotzInc/platform-agreements/tree/main/alembic).
-
 ## Migrating from Pony ORM
 
 Pony lacks async, lacks typed `Mapped[T]`, and is in limited maintenance. The
 platform standardised on SQLAlchemy 2.0 via `serpens.database`. **Use the async
-API by default** — `platform-agreements` is the reference and runs SA 2.0 async
-end-to-end.
+API by default.**
 
 ### Mapping table
 
@@ -443,8 +438,7 @@ Branch from `staging` → `feat/migrate-pony-to-sqlalchemy`.
 ### Common gotchas
 
 - **Optimistic lock changes**. Pony locks read rows by default; SA 2.0 does
-  not. If a job relied on it (e.g. `platform-servicing`), opt back in with
-  `version_id_col` on the model.
+  not. If a job relied on it, opt back in with `version_id_col` on the model.
 - **`X(...)` does not INSERT in SA 2.0**. Use `sess.add(obj)` and, if you need
   `obj.id` populated, `sess.flush()`.
 - **`autoflush=False`**. Serpens disables autoflush so a stray `select`
@@ -458,8 +452,8 @@ Branch from `staging` → `feat/migrate-pony-to-sqlalchemy`.
 
 ### When NOT to use serpens.database
 
-- The repo already has an idiomatic SA 2.0 `SessionLocal` (e.g.
-  `platform-conciliation`). Don't migrate just for standardization.
+- The repo already has an idiomatic SA 2.0 `SessionLocal`. Don't migrate
+  just for standardization.
 - You need an SA feature serpens does not expose — import from `sqlalchemy`
   directly. Serpens is a thin layer by design.
 
@@ -589,8 +583,8 @@ and by scope (process-local vs distributed).
 - **Fails open.** A Redis outage degrades to "no cache" instead of crashing
   the caller. Reads return `None` (treated as miss), writes/deletes become
   no-ops, decorators fall through to the wrapped function. Each failure
-  logs a warning. This is the property the existing
-  `fastapi_extras.databases.redis.RedisManager` does not provide.
+  logs a warning. Most plain `redis.asyncio.Redis` wrappers don't trap
+  connection errors and propagate them to handlers.
 - **Single source of truth.** Stops the per-service drift (in-process TTL
   caches reimplemented in each repo, Redis lifecycle wired by hand, etc.).
 - **Symmetric APIs.** Sync, async in-process and async Redis share the
@@ -606,8 +600,8 @@ and by scope (process-local vs distributed).
 
 | Today's code | Move to | What you gain |
 |---|---|---|
-| `fastapi_extras.databases.redis.RedisManager` as `Depends` factory | `serpens.cache.redis_pool` | Fail-open client on Redis outage; same `Depends` contract, one-line swap |
-| App-local `acached` / in-process async TTL cache (e.g. `platform-agreements/agreements/cache.py`) | `serpens.cache.acached` | One implementation maintained centrally; monotonic-clock TTL; same `self`-aware key heuristic |
+| Third-party Redis `Depends` factory (callable yielding `redis.asyncio.Redis`) | `serpens.cache.redis_pool` | Fail-open client on Redis outage; same `Depends` contract, one-line swap |
+| App-local `acached` / in-process async TTL cache | `serpens.cache.acached` | One implementation maintained centrally; monotonic-clock TTL; same `self`-aware key heuristic |
 | Direct `Redis.from_url(...)` + manual `aclose()` in Lambda | `serpens.cache.redis_init` / `redis_close` / `redis_get` / `redis_set` / `redis_cached` | Lifecycle helpers, auto JSON serialization, fail-open, env-driven prefix/TTL |
 | `serpens.cache.cached` (sync legacy) | unchanged | Already lives here; consumed by `parameters` and `secrets_manager` |
 
@@ -764,9 +758,9 @@ async def emit(payload: dict):
 
 | Today's code | Move to | What you gain |
 |---|---|---|
-| `pubsub_v1.PublisherClient()` + `client.topic_path(project, topic)` + `future.result()` per publish (`platform-servicing` patterns) | `AsyncPublisher()` + `await publisher.publish(topic, payload)` | Non-blocking publish, full topic id, central APM span emission, one client per process |
+| `pubsub_v1.PublisherClient()` + `client.topic_path(project, topic)` + `future.result()` per publish | `AsyncPublisher()` + `await publisher.publish(topic, payload)` | Non-blocking publish, full topic id, central APM span emission, one client per process |
 | `serpens.pubsub.publish_message(...)` (sync, creates a new `PublisherClient` per call) inside an async handler | `AsyncPublisher` | Avoids the per-call client construction; no event loop blocking |
-| Two services with their own `TracedMessagePublisher` wrapper (e.g. `integrator-vcom`) | `AsyncPublisher` | Removes the duplicated wrapper; spans emitted from the lib |
+| Per-service `TracedMessagePublisher` / APM-aware wrapper | `AsyncPublisher` | Removes the duplicated wrapper; spans emitted from the lib |
 
 The sync `serpens.pubsub.publish_message` / `publish_message_batch` remain
 the right choice for Lambda one-shots or non-async code paths.
@@ -791,7 +785,7 @@ testgres.setup(Base, async_mode=True, redis_mode=True)
 |---|---|---|
 | (default) | Spins a Postgres container, binds `database.SessionLocal` (sync) | Lambda services / sync codebases |
 | `async_mode=True` | Also binds `database.AsyncSessionLocal` with `NullPool` | FastAPI services / async tests; remove the per-conftest async engine wiring |
-| `redis_mode=True` | Spins a Redis container alongside Postgres, exports `REDIS_URL` | Services using `serpens.cache.redis_*` or `fastapi_extras` Redis; replaces the manual `docker run redis` boilerplate that lives in `pix-automatic` / `integrator-vcom` test setup |
+| `redis_mode=True` | Spins a Redis container alongside Postgres, exports `REDIS_URL` | Services using `serpens.cache.redis_*` or any Redis client; replaces the manual `docker run redis` boilerplate teams currently keep in their own `conftest.py` |
 | `default_schema="x,y"` | Pre-creates the schemas and sets `search_path` | Services using schema scoping via `declarative_base(schema=...)` |
 | `uri=...` / `DATABASE_URL` env | Skips the container, uses the provided URI | CI runners that already have Postgres available |
 | `REDIS_URL` env (when `redis_mode=True`) | Skips the Redis container, uses the provided URL | CI runners with existing Redis |
@@ -820,4 +814,4 @@ testgres.setup(Base, async_mode=True, redis_mode=True)
 |---|---|---|
 | Hand-rolled `docker run postgres:13` in test setup + manual `create_engine` + `metadata.create_all` | `serpens.testgres.setup(Base)` | Container lifecycle, schema bootstrap, sane defaults, error propagation |
 | Test suite that wires async engine separately from sync (parallel `AsyncSessionLocal` setup in `conftest.py`) | `setup(Base, async_mode=True)` | One factory wired automatically with `NullPool` (correct for tests) |
-| `pix-automatic` / `integrator-vcom` style: `docker run postgres` + `docker run redis` boilerplate in `conftest.py` | `setup(Base, redis_mode=True)` | One call, both containers, env vars exported |
+| `docker run postgres` + `docker run redis` boilerplate in `conftest.py` | `setup(Base, redis_mode=True)` | One call, both containers, env vars exported |
