@@ -8,11 +8,6 @@ import cache
 from tests.fixtures.fixtures import ClsCached
 
 
-# ---------------------------------------------------------------------------
-# Sync in-process cache.
-# ---------------------------------------------------------------------------
-
-
 class TestSCache(unittest.TestCase):
     counter = 0
 
@@ -62,11 +57,6 @@ class TestSCache(unittest.TestCase):
 
         strike3 = obj.proc_self()
         self.assertEqual(strike3, 2)
-
-
-# ---------------------------------------------------------------------------
-# Async in-process cache.
-# ---------------------------------------------------------------------------
 
 
 class AsyncInmemCacheTests(unittest.IsolatedAsyncioTestCase):
@@ -151,11 +141,6 @@ class AsyncInmemCacheTests(unittest.IsolatedAsyncioTestCase):
         await a(None)
         cache.clear_acache()
         self.assertEqual(cache._acache, {})
-
-
-# ---------------------------------------------------------------------------
-# Async Redis-backed cache.
-# ---------------------------------------------------------------------------
 
 
 class _AsyncRedisStub:

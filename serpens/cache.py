@@ -1,19 +1,5 @@
-"""Cache utilities — three flavors in one module.
-
-* ``cached`` / ``clear_cache`` — **sync, in-process** TTL cache. The
-  original serpens API; consumed by ``serpens.parameters``,
-  ``serpens.secrets_manager`` and downstream services.
-* ``acached`` / ``clear_acache`` — **async, in-process** TTL cache.
-  Same idea, for ``async def`` callers. Drops the first positional arg
-  from the key, on the assumption it's ``self`` (a repository or
-  service pointing at the same store). Uses ``time.monotonic`` so TTL
-  is immune to clock adjustments.
-* ``redis_*`` — **async, Redis-backed** distributed cache. Lifecycle:
-  ``redis_init`` once at startup, ``redis_close`` at shutdown. Fails
-  open: on ``RedisError`` reads return ``None`` (as a miss), writes and
-  deletes become no-ops, and ``redis_cached_get_or_set`` falls through
-  to the wrapped function. Programming errors (using before init)
-  still raise ``RuntimeError``.
+"""TTL cache: sync (``cached``), async in-process (``acached``), async Redis
+(``redis_*``, fails open on ``RedisError``).
 """
 
 import json
@@ -29,10 +15,6 @@ from redis.exceptions import RedisError
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Sync in-process cache (legacy public API).
-# ---------------------------------------------------------------------------
 
 cache: dict = {}
 
@@ -68,10 +50,6 @@ def clear_cache(cache_name):
     cache.pop(cache_name, None)
 
 
-# ---------------------------------------------------------------------------
-# Async in-process cache.
-# ---------------------------------------------------------------------------
-
 _acache: dict = {}
 
 
@@ -100,10 +78,6 @@ def acached(cache_name: str, ttl_seconds: int) -> Callable:
 
     return decorator
 
-
-# ---------------------------------------------------------------------------
-# Async Redis-backed cache (fails open).
-# ---------------------------------------------------------------------------
 
 REDIS_DEFAULT_TTL = int(os.getenv("CACHE_TTL", "300"))
 REDIS_PREFIX = os.getenv("CACHE_PREFIX", "serpens")
