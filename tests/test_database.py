@@ -135,10 +135,7 @@ class TestBindDispose(unittest.TestCase):
         self.assertIsNot(engine1, engine2)
 
     def test_bind_normalizes_postgres_scheme(self):
-        with (
-            patch("serpens.database.create_engine") as mcreate,
-            patch("serpens.database.event"),
-        ):
+        with patch("serpens.database.create_engine") as mcreate, patch("serpens.database.event"):
             mcreate.return_value = MagicMock()
             database.bind("postgres://user:pass@host/db")
             called_url = mcreate.call_args.args[0]
@@ -195,10 +192,9 @@ class TestAsyncEngineRegistersOnConnect(unittest.TestCase):
         database.AsyncSessionLocal = None
 
     def test_postgres_registers_listener(self):
-        with (
-            patch("serpens.database.create_async_engine") as mcreate,
-            patch("serpens.database.event") as mevent,
-        ):
+        with patch("serpens.database.create_async_engine") as mcreate, patch(
+            "serpens.database.event"
+        ) as mevent:
             mcreate.return_value = MagicMock()
             database.async_bind("postgresql://user:pw@host/db")
             mevent.listen.assert_called_once()
@@ -207,10 +203,9 @@ class TestAsyncEngineRegistersOnConnect(unittest.TestCase):
             self.assertIs(args[2], database._on_connect)
 
     def test_sqlite_does_not_register_listener(self):
-        with (
-            patch("serpens.database.create_async_engine") as mcreate,
-            patch("serpens.database.event") as mevent,
-        ):
+        with patch("serpens.database.create_async_engine") as mcreate, patch(
+            "serpens.database.event"
+        ) as mevent:
             mcreate.return_value = MagicMock()
             database.async_bind("sqlite:///:memory:")
             mevent.listen.assert_not_called()
