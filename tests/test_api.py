@@ -317,3 +317,38 @@ class TestApiHandler(unittest.TestCase):
 
         self.assertIn("statusCode", response)
         self.assertEqual(response["statusCode"], 500)
+
+
+class TestApiAsyncHandler(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.elastic_patcher = patch("serpens.elastic.elasticapm")
+        self.mock_elastic = self.elastic_patcher.start()
+
+    def tearDown(self):
+        self.elastic_patcher.stop()
+
+    @patch("serpens.elastic.ELASTIC_APM_ENABLED", True)
+    @patch("serpens.elastic.ELASTIC_APM_CAPTURE_BODY", True)
+    async def test_async_handler_returns_status_and_body(self):
+        @api.async_handler
+        async def handler(request):
+            return 201, {"foo": request.authorizer.foo, "ping": request.body["ping"]}
+
+        event = {
+            "requestContext": {"authorizer": {"foo": "bar"}},
+            "body": '{"ping": "pong"}',
+        }
+        response = await handler(event, {})
+
+        self.assertEqual(response["statusCode"], 201)
+        self.assertEqual(json.loads(response["body"]), {"foo": "bar", "ping": "pong"})
+
+    async def test_async_handler_returns_500_on_exception(self):
+        @api.async_handler
+        async def handler(request):
+            raise RuntimeError("boom")
+
+        response = await handler({}, {})
+
+        self.assertEqual(response["statusCode"], 500)
+        self.assertEqual(json.loads(response["body"]), {"message": "boom"})

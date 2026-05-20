@@ -112,37 +112,42 @@ class TestTestgres(unittest.TestCase):
         result = docker_pg_user_path()
         self.assertIsNone(result)
 
+    @patch("serpens.testgres._wait_for_postgres_accept", return_value=True)
+    @patch("serpens.testgres._wait_for_tcp", return_value=True)
     @patch("serpens.testgres.docker_pg_isready")
-    def test_docker_init(self, mpgs):
+    def test_docker_init(self, mpgs, _mtcp, _mpg):
         self.mrun.return_value.stdout = "foobar:65432"
         mpgs.side_effect = [1, 0]
         result = docker_init()
-        self.assertEqual(result, "postgres://testgres:testgres@localhost:65432/testgres")
+        self.assertEqual(result, "postgresql+psycopg2://testgres:testgres@localhost:65432/testgres")
 
     @patch("serpens.testgres.docker_init")
     @patch("serpens.testgres.database")
     def test_start_test_run(self, mdb, mdi):
-        expected_uri = "postgres://testgres:testgres@localhost:65432/testgres"
+        expected_uri = "postgresql+psycopg2://testgres:testgres@localhost:65432/testgres"
         mdi.return_value = expected_uri
-        start_test_run(None)
 
-        mdb.bind.assert_called_with(expected_uri, mapping=True)
-        self.assertEqual(mdb.create_tables.call_count, 1)
+        mbase = Mock()
+        with patch("serpens.testgres.base", mbase):
+            start_test_run(None)
+
+        mdb.bind.assert_called_with(expected_uri)
+        mbase.metadata.create_all.assert_called_once()
 
     @patch("serpens.testgres.docker_init", Mock())
     @patch("serpens.testgres.database")
-    def test_start_test_run_exception(self, mdb):
-        mdb.bind.side_effect = Exception()
-
-        start_test_run(None)
-
-        self.assertEqual(self.mprint.call_count, 1)
+    def test_start_test_run_propagates_exception(self, mdb):
+        mdb.bind.side_effect = RuntimeError("boom")
+        with self.assertRaises(RuntimeError):
+            start_test_run(None)
 
     @patch("serpens.testgres.default_stop_test_run")
-    def test_stop_test_run(self, mrun):
+    @patch("serpens.testgres.database")
+    def test_stop_test_run(self, mdb, mrun):
         mrun.return_value = None
         result = stop_test_run(None)
         self.assertIsNone(result)
+        mdb.dispose.assert_called_once()
 
     @patch("serpens.testgres.unittest")
     def test_setup_without_database_url(self, munit):
@@ -151,7 +156,7 @@ class TestTestgres(unittest.TestCase):
         if "DATABASE_URL" in os.environ:
             db_url = os.environ.pop("DATABASE_URL")
 
-        setup("")
+        setup(Mock())
 
         self.assertEqual(munit.result.TestResult.startTestRun, start_test_run)
         self.assertEqual(munit.result.TestResult.stopTestRun, stop_test_run)
@@ -159,17 +164,46 @@ class TestTestgres(unittest.TestCase):
         if db_url:
             os.environ["DATABASE_URL"] = db_url
 
-    def test_setup_with_database_url(self):
+    @patch("serpens.testgres.unittest")
+    def test_setup_with_database_url_defers_to_start_run(self, munit):
         db_url = os.environ.get("DATABASE_URL")
+        os.environ["DATABASE_URL"] = "postgresql+psycopg2://t:t@localhost:55432/t"
 
-        if not db_url:
-            os.environ["DATABASE_URL"] = "postgres://testgres:testgres@localhost:55432/testgres"
+        try:
+            from serpens import testgres as tg
 
-        mdb = Mock()
+            setup(Mock())
 
-        setup(mdb)
+            self.assertEqual(tg.external_uri, "postgresql+psycopg2://t:t@localhost:55432/t")
+            self.assertEqual(munit.result.TestResult.startTestRun, start_test_run)
+            self.assertEqual(munit.result.TestResult.stopTestRun, stop_test_run)
+        finally:
+            if db_url is None:
+                del os.environ["DATABASE_URL"]
+            else:
+                os.environ["DATABASE_URL"] = db_url
 
-        self.assertEqual(mdb.create_tables.call_count, 1)
+    def test_setup_with_redis_mode_flags_it(self):
+        from serpens import testgres as tg
 
-        if db_url:
-            os.environ["DATABASE_URL"] = db_url
+        prev_db, prev_redis = os.environ.pop("DATABASE_URL", None), os.environ.pop(
+            "REDIS_URL", None
+        )
+        try:
+            setup(Mock(), redis_mode=True)
+            self.assertTrue(tg.redis_enabled)
+            self.assertIsNone(tg.external_redis_url)
+        finally:
+            tg.redis_enabled = False
+            if prev_db is not None:
+                os.environ["DATABASE_URL"] = prev_db
+            if prev_redis is not None:
+                os.environ["REDIS_URL"] = prev_redis
+
+    @patch("serpens.testgres._wait_for_tcp", return_value=True)
+    def test_docker_redis_init_returns_url(self, _mtcp):
+        from serpens.testgres import docker_redis_init
+
+        self.mrun.return_value.stdout = "6379/tcp -> 0.0.0.0:65432"
+        url = docker_redis_init()
+        self.assertEqual(url, "redis://localhost:65432")
