@@ -89,7 +89,7 @@ def _engine_args(url, pool_use_lifo=None):
 
 def _normalize_sync_url(url):
     if url and url.startswith("postgres://"):
-        return "postgresql+psycopg2://" + url.removeprefix("postgres://")
+        return url.replace("postgres://", "postgresql+psycopg2://", 1)
     return url
 
 
@@ -106,7 +106,7 @@ def _normalize_async_url(url):
         return url
     for prefix, target in _ASYNC_SCHEMES.items():
         if url.startswith(prefix):
-            return target + url.removeprefix(prefix)
+            return url.replace(prefix, target, 1)
     return url
 
 

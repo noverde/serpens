@@ -15,9 +15,9 @@ def _resolve_url(url=None):
     if not url:
         raise RuntimeError("DATABASE_URL not set")
     if url.startswith("postgres://"):
-        return "postgresql+psycopg2://" + url.removeprefix("postgres://")
+        return url.replace("postgres://", "postgresql+psycopg2://", 1)
     if url.startswith("postgresql+asyncpg://"):
-        return "postgresql+psycopg2://" + url.removeprefix("postgresql+asyncpg://")
+        return url.replace("postgresql+asyncpg://", "postgresql+psycopg2://", 1)
     return url
 
 
