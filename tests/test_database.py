@@ -177,10 +177,11 @@ class TestOnConnect(unittest.TestCase):
             },
         ):
             database._on_connect(conn, None)
-        called_sql = cur.execute.call_args.args[0]
-        self.assertIn("statement_timeout = 9000", called_sql)
-        self.assertIn("lock_timeout = 1500", called_sql)
-        self.assertIn("idle_in_transaction_session_timeout = 12000", called_sql)
+        executed = [c.args[0] for c in cur.execute.call_args_list]
+        self.assertEqual(len(executed), 3)
+        self.assertEqual(executed[0], "SET statement_timeout = 9000")
+        self.assertEqual(executed[1], "SET lock_timeout = 1500")
+        self.assertEqual(executed[2], "SET idle_in_transaction_session_timeout = 12000")
         cur.close.assert_called_once()
 
 

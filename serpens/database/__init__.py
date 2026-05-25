@@ -52,11 +52,9 @@ def _on_connect(dbapi_conn, _):
     idle_ms = int(os.getenv("DB_IDLE_IN_TX_TIMEOUT_MS", "10000"))
     cur = dbapi_conn.cursor()
     try:
-        cur.execute(
-            f"SET statement_timeout = {stmt_ms};"
-            f"SET lock_timeout = {lock_ms};"
-            f"SET idle_in_transaction_session_timeout = {idle_ms}"
-        )
+        cur.execute(f"SET statement_timeout = {stmt_ms}")
+        cur.execute(f"SET lock_timeout = {lock_ms}")
+        cur.execute(f"SET idle_in_transaction_session_timeout = {idle_ms}")
     finally:
         cur.close()
 
