@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime
 from typing import AsyncIterator, Iterator, Optional
 
-from sqlalchemy import DateTime, Engine, MetaData, create_engine, event
+from sqlalchemy import DateTime, Engine, MetaData, create_engine, event, text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -83,6 +83,12 @@ def _engine_args(url, pool_use_lifo=None):
         "keepalives_interval": 10,
         "keepalives_count": 3,
     }
+
+
+def _statement_timeout_sql(dialect_name: str, statement_timeout_ms: Optional[int]) -> Optional[str]:
+    if statement_timeout_ms is None or dialect_name != "postgresql":
+        return None
+    return f"SET LOCAL statement_timeout = {int(statement_timeout_ms)}"
 
 
 def _normalize_sync_url(url):
@@ -161,11 +167,14 @@ async def async_dispose() -> None:
 
 
 @contextmanager
-def db_session() -> Iterator[Session]:
+def db_session(statement_timeout_ms: Optional[int] = None) -> Iterator[Session]:
     if SessionLocal is None:
         bind()
     sess = SessionLocal()
     try:
+        timeout_sql = _statement_timeout_sql(_engine.dialect.name, statement_timeout_ms)
+        if timeout_sql:
+            sess.execute(text(timeout_sql))
         yield sess
         sess.commit()
     except BaseException:
@@ -176,11 +185,16 @@ def db_session() -> Iterator[Session]:
 
 
 @asynccontextmanager
-async def async_db_session() -> AsyncIterator[AsyncSession]:
+async def async_db_session(
+    statement_timeout_ms: Optional[int] = None,
+) -> AsyncIterator[AsyncSession]:
     if AsyncSessionLocal is None:
         async_bind()
     sess = AsyncSessionLocal()
     try:
+        timeout_sql = _statement_timeout_sql(_async_engine.dialect.name, statement_timeout_ms)
+        if timeout_sql:
+            await sess.execute(text(timeout_sql))
         yield sess
         await sess.commit()
     except BaseException:
