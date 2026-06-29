@@ -1,6 +1,6 @@
 import asyncio
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from sqlalchemy import Column, Integer, String, select
 
@@ -105,6 +105,92 @@ class TestDatabase(unittest.TestCase):
             row.label = "changed"
             sess.flush()
             self.assertGreaterEqual(row.updated_at, original_updated)
+
+
+class TestStatementTimeout(unittest.TestCase):
+    def test_sql_built_for_postgres(self):
+        self.assertEqual(
+            database._statement_timeout_sql("postgresql", 3000),
+            "SET LOCAL statement_timeout = 3000",
+        )
+
+    def test_sql_none_for_non_postgres(self):
+        self.assertIsNone(database._statement_timeout_sql("sqlite", 3000))
+
+    def test_sql_none_when_timeout_unset(self):
+        self.assertIsNone(database._statement_timeout_sql("postgresql", None))
+
+    def test_sql_coerces_to_int(self):
+        self.assertEqual(
+            database._statement_timeout_sql("postgresql", "1500"),
+            "SET LOCAL statement_timeout = 1500",
+        )
+
+    def test_sql_none_for_non_positive(self):
+        self.assertIsNone(database._statement_timeout_sql("postgresql", 0))
+        self.assertIsNone(database._statement_timeout_sql("postgresql", -100))
+
+    def test_db_session_accepts_timeout_on_non_postgres(self):
+        database.dispose()
+        engine = database.bind("sqlite:///:memory:")
+        Base.metadata.create_all(engine)
+        try:
+            with db_session(statement_timeout_ms=3000) as sess:
+                sess.add(_Item(name="x"))
+            with db_session() as sess:
+                self.assertEqual(len(sess.execute(select(_Item)).scalars().all()), 1)
+        finally:
+            database.dispose()
+
+    def test_db_session_executes_set_local_for_postgres(self):
+        mock_sess = MagicMock()
+        engine = MagicMock()
+        engine.dialect.name = "postgresql"
+        with patch.object(database, "SessionLocal", MagicMock(return_value=mock_sess)):
+            with patch.object(database, "_engine", engine):
+                with db_session(statement_timeout_ms=2500):
+                    pass
+
+        executed_sql = str(mock_sess.execute.call_args[0][0])
+        self.assertEqual(executed_sql, "SET LOCAL statement_timeout = 2500")
+
+    def test_async_db_session_executes_set_local_for_postgres(self):
+        mock_sess = MagicMock()
+        mock_sess.execute = AsyncMock()
+        mock_sess.commit = AsyncMock()
+        mock_sess.close = AsyncMock()
+        engine = MagicMock()
+        engine.dialect.name = "postgresql"
+
+        async def run():
+            with patch.object(database, "AsyncSessionLocal", MagicMock(return_value=mock_sess)):
+                with patch.object(database, "_async_engine", engine):
+                    async with async_db_session(statement_timeout_ms=2500):
+                        pass
+
+        asyncio.run(run())
+
+        mock_sess.execute.assert_awaited_once()
+        executed_sql = str(mock_sess.execute.await_args[0][0])
+        self.assertEqual(executed_sql, "SET LOCAL statement_timeout = 2500")
+
+    def test_async_db_session_no_set_local_for_non_postgres(self):
+        mock_sess = MagicMock()
+        mock_sess.execute = AsyncMock()
+        mock_sess.commit = AsyncMock()
+        mock_sess.close = AsyncMock()
+        engine = MagicMock()
+        engine.dialect.name = "sqlite"
+
+        async def run():
+            with patch.object(database, "AsyncSessionLocal", MagicMock(return_value=mock_sess)):
+                with patch.object(database, "_async_engine", engine):
+                    async with async_db_session(statement_timeout_ms=2500):
+                        pass
+
+        asyncio.run(run())
+
+        mock_sess.execute.assert_not_awaited()
 
 
 class TestDeclarativeBaseFactory(unittest.TestCase):
