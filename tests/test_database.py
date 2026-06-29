@@ -126,6 +126,10 @@ class TestStatementTimeout(unittest.TestCase):
             "SET LOCAL statement_timeout = 1500",
         )
 
+    def test_sql_none_for_non_positive(self):
+        self.assertIsNone(database._statement_timeout_sql("postgresql", 0))
+        self.assertIsNone(database._statement_timeout_sql("postgresql", -100))
+
     def test_db_session_accepts_timeout_on_non_postgres(self):
         database.dispose()
         engine = database.bind("sqlite:///:memory:")

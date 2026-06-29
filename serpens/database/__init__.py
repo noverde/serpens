@@ -88,7 +88,10 @@ def _engine_args(url, pool_use_lifo=None):
 def _statement_timeout_sql(dialect_name: str, statement_timeout_ms: Optional[int]) -> Optional[str]:
     if statement_timeout_ms is None or dialect_name != "postgresql":
         return None
-    return f"SET LOCAL statement_timeout = {int(statement_timeout_ms)}"
+    timeout = int(statement_timeout_ms)
+    if timeout <= 0:
+        return None
+    return f"SET LOCAL statement_timeout = {timeout}"
 
 
 def _normalize_sync_url(url):
