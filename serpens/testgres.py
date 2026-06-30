@@ -24,6 +24,8 @@ testgres_startup_timeout = int(os.getenv("TESTGRES_STARTUP_TIMEOUT", 30))
 container_name = f"testgres_{uuid.uuid4().hex}"
 redis_container_name = f"testredis_{uuid.uuid4().hex}"
 redis_image = os.getenv("TESTGRES_REDIS_IMAGE", "redis:7-alpine")
+testgres_network = os.getenv("TESTGRES_DOCKER_NETWORK", "")
+testgres_port = os.getenv("TESTGRES_PORT", "5433" if testgres_network else "5432")
 
 
 def docker_shell(cmd, output=True):
@@ -37,6 +39,9 @@ def docker_start():
     imgname = "postgres:13"
     cmdargs = f"-d --rm --name {container_name}"
     envvars = "-e POSTGRES_USER=testgres -e POSTGRES_PASSWORD=testgres"
+    if testgres_network:
+        netargs = f"--network {testgres_network} -e PGPORT={testgres_port}"
+        return docker_shell(f"docker run {cmdargs} {netargs} {envvars} {imgname}")
     publish = "-p 5432"
     return docker_shell(f"docker run {cmdargs} {publish} {envvars} {imgname}")
 
@@ -61,6 +66,8 @@ def docker_pg_user_path():
 
 
 def docker_port():
+    if testgres_network:
+        return testgres_port
     stdout = docker_shell(f"docker port {container_name}").stdout
     result = stdout.split("\n")[0]
     return result.split(":")[1]

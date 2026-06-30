@@ -53,6 +53,22 @@ class TestTestgres(unittest.TestCase):
         result = docker_port()
         self.assertEqual(result, "65432")
 
+    @patch("serpens.testgres.container_name", "testgres")
+    @patch("serpens.testgres.testgres_port", "5433")
+    @patch("serpens.testgres.testgres_network", "host")
+    def test_docker_start_host_network(self):
+        self.mrun.return_value.stdout = "OK"
+        docker_start()
+        cmd = " ".join(self.mrun.call_args[0][0])
+        self.assertIn("--network host", cmd)
+        self.assertIn("-e PGPORT=5433", cmd)
+        self.assertNotIn("-p 5432", cmd)
+
+    @patch("serpens.testgres.testgres_port", "5433")
+    @patch("serpens.testgres.testgres_network", "host")
+    def test_docker_port_host_network(self):
+        self.assertEqual(docker_port(), "5433")
+
     def test_docker_pg_isready(self):
         self.mrun.return_value.returncode = 2
         result = docker_pg_isready()
