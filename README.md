@@ -790,6 +790,34 @@ testgres.setup(Base, async_mode=True, redis_mode=True)
 | `uri=...` / `DATABASE_URL` env | Skips the container, uses the provided URI | CI runners that already have Postgres available |
 | `REDIS_URL` env (when `redis_mode=True`) | Skips the Redis container, uses the provided URL | CI runners with existing Redis |
 
+### Networking (VPN-safe by default on Linux)
+
+On Linux, containers run with `--network=host` on a fixed port instead of
+publishing a Docker-assigned one. Docker's published-port NAT breaks while
+a VPN is up (`server closed the connection unexpectedly`); host networking
+avoids it. macOS/Windows (Docker Desktop) keep publishing a random port.
+
+| Env var | Default | Effect |
+|---|---|---|
+| `TESTGRES_NETWORK` | `host` on Linux, `bridge` elsewhere | `bridge` restores the published random-port behaviour (e.g. Docker Desktop on Linux) |
+| `TESTGRES_PORT` | `5433` | Postgres base port in host mode (5433 leaves a local 5432 alone) |
+| `TESTGRES_REDIS_PORT` | `6380` | Redis base port in host mode |
+| `RUNNER_NAME` | — | Its digits are added to the base port (`runner-2` → 5435), so CI runners sharing a Docker host don't collide |
+| `TESTGRES_IMAGE` | `postgres:13` | Postgres image |
+
+Containers are labelled with their port; one left behind by a killed run is
+removed on the next start. If something else holds the port, startup fails
+straight away with a message naming the knobs above.
+
+Parallel runners give each worker its own slot (and so its own container
+and port) with `worker_env`:
+
+```python
+from serpens import testgres
+
+subprocess.run(["python", "-m", "unittest", *modules], env=testgres.worker_env(index))
+```
+
 ### Why use it
 
 - **One conftest line replaces a dozen.** Tests that previously wired
@@ -815,3 +843,4 @@ testgres.setup(Base, async_mode=True, redis_mode=True)
 | Hand-rolled `docker run postgres:13` in test setup + manual `create_engine` + `metadata.create_all` | `serpens.testgres.setup(Base)` | Container lifecycle, schema bootstrap, sane defaults, error propagation |
 | Test suite that wires async engine separately from sync (parallel `AsyncSessionLocal` setup in `conftest.py`) | `setup(Base, async_mode=True)` | One factory wired automatically with `NullPool` (correct for tests) |
 | `docker run postgres` + `docker run redis` boilerplate in `conftest.py` | `setup(Base, redis_mode=True)` | One call, both containers, env vars exported |
+| `tests/__init__.py` overriding `testgres.docker_init` to run `--network=host` on 5433 + `RUNNER_NAME` (VPN workaround) | Plain `testgres.setup(Base)`; `testgres.worker_env(i)` in the parallel runner | Same behaviour, one maintained copy |

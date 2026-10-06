@@ -5,6 +5,8 @@ from unittest.mock import Mock, call, patch
 
 from serpens.testgres import (
     docker_init,
+    docker_redis_port,
+    docker_redis_start,
     docker_pg_isready,
     docker_pg_user_path,
     docker_port,
@@ -14,6 +16,7 @@ from serpens.testgres import (
     setup,
     start_test_run,
     stop_test_run,
+    worker_env,
 )
 
 
@@ -21,6 +24,10 @@ class TestTestgres(unittest.TestCase):
     def setUp(self):
         run_patcher = patch("subprocess.run")
         print_patcher = patch("serpens.testgres.print")
+        # Host is the default on Linux; these tests cover the classic published-port mode.
+        network_patcher = patch("serpens.testgres.network_mode", "bridge")
+        network_patcher.start()
+        self.addCleanup(network_patcher.stop)
 
         self.mrun = run_patcher.start()
         self.mprint = print_patcher.start()
@@ -207,3 +214,84 @@ class TestTestgres(unittest.TestCase):
         self.mrun.return_value.stdout = "6379/tcp -> 0.0.0.0:65432"
         url = docker_redis_init()
         self.assertEqual(url, "redis://localhost:65432")
+
+
+@patch.dict(os.environ, {"RUNNER_NAME": "runner-2"})
+@patch("serpens.testgres.network_mode", "host")
+@patch("serpens.testgres.container_name", "testgres")
+@patch("serpens.testgres.redis_container_name", "testredis")
+class TestTestgresHostNetwork(unittest.TestCase):
+    def setUp(self):
+        run_patcher = patch("subprocess.run")
+        in_use_patcher = patch("serpens.testgres._port_in_use", return_value=False)
+
+        self.mrun = run_patcher.start()
+        self.mrun.return_value.stdout = ""
+        self.mrun.return_value.stderr = ""
+        self.min_use = in_use_patcher.start()
+
+        self.addCleanup(run_patcher.stop)
+        self.addCleanup(in_use_patcher.stop)
+
+    def commands(self):
+        return [shlex.join(c.args[0]) for c in self.mrun.call_args_list]
+
+    def test_docker_start_uses_host_network_on_slot_port(self):
+        docker_start()
+        self.assertEqual(
+            self.commands()[-1],
+            "docker run -d --rm --name testgres --label serpens.testgres.port=5435 "
+            "--network=host -e PGPORT=5435 "
+            "-e POSTGRES_USER=testgres -e POSTGRES_PASSWORD=testgres postgres:13",
+        )
+
+    def test_docker_start_removes_stale_container_on_port(self):
+        self.mrun.return_value.stdout = "abc123\n"
+        docker_start()
+        self.assertEqual(
+            self.commands()[:2],
+            [
+                "docker ps -aq --filter label=serpens.testgres.port=5435",
+                "docker rm -f abc123",
+            ],
+        )
+
+    def test_docker_start_fails_fast_when_port_taken(self):
+        self.min_use.return_value = True
+        with self.assertRaisesRegex(RuntimeError, "port 5435 is already in use"):
+            docker_start()
+        self.assertFalse(any(c.startswith("docker run") for c in self.commands()))
+
+    def test_docker_port_is_slot_port(self):
+        self.assertEqual(docker_port(), "5435")
+        self.mrun.assert_not_called()
+
+    @patch.dict(os.environ, {"RUNNER_NAME": ""})
+    def test_docker_port_defaults_to_base_port(self):
+        self.assertEqual(docker_port(), "5433")
+
+    @patch("serpens.testgres._wait_for_postgres_accept", return_value=True)
+    @patch("serpens.testgres._wait_for_tcp", return_value=True)
+    @patch("serpens.testgres.docker_pg_isready", return_value=0)
+    @patch("serpens.testgres.print", Mock())
+    def test_docker_init(self, _mpgs, mtcp, _mpg):
+        result = docker_init()
+        self.assertEqual(result, "postgresql+psycopg2://testgres:testgres@localhost:5435/testgres")
+        self.assertEqual(mtcp.call_args.args[0], "5435")
+
+    def test_docker_redis_start_uses_host_network_on_slot_port(self):
+        docker_redis_start()
+        self.assertEqual(
+            self.commands()[-1],
+            "docker run -d --rm --name testredis --label serpens.testgres.port=6382 "
+            "--network=host redis:7-alpine redis-server --port 6382",
+        )
+        self.assertEqual(docker_redis_port(), "6382")
+
+    def test_worker_env_nests_under_runner_slot(self):
+        self.assertEqual(worker_env(3)["RUNNER_NAME"], "203")
+        self.assertEqual(worker_env(1, env={})["RUNNER_NAME"], "1")
+
+    @patch.dict(os.environ, {"RUNNER_NAME": "runner-123456"})
+    def test_huge_runner_name_stays_in_port_range(self):
+        self.assertEqual(docker_port(), str(5433 + 3456))
